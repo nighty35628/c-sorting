@@ -1,5 +1,5 @@
 """
-程序入口：启动 Tkinter GUI。
+程序入口：启动 PyQt6 GUI。
 """
 import sys
 from pathlib import Path
@@ -10,12 +10,13 @@ if str(root) not in sys.path:
     sys.path.insert(0, str(root))
 
 from src.gui.app import App
-import tkinter as tk
+from PyQt6.QtWidgets import QApplication
 
 def main():
-    root = tk.Tk()
-    app = App(root)
-    root.mainloop()
+    app_qt = QApplication(sys.argv)
+    app = App()
+    app.show()
+    sys.exit(app_qt.exec())
 
 if __name__ == '__main__':
     main()

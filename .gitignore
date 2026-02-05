@@ -3,3 +3,13 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Local config and data
+config.json
+history.json
+*.log
