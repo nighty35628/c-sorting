@@ -13,3 +13,7 @@ dist/
 config.json
 history.json
 *.log
+
+# Executables
+*.exe
+setup/
