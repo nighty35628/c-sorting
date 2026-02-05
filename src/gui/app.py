@@ -13,7 +13,11 @@ from PyQt6.QtWidgets import (
     QGraphicsOpacityEffect, QApplication, QStackedWidget,
     QGridLayout, QScrollArea, QFrame, QDialog, QGraphicsDropShadowEffect
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPropertyAnimation, QEasingCurve, QAbstractAnimation, QByteArray
+from PyQt6.QtCore import (
+    Qt, QThread, pyqtSignal, QPropertyAnimation, 
+    QEasingCurve, QAbstractAnimation, QByteArray,
+    QParallelAnimationGroup
+)
 from PyQt6.QtGui import QPixmap
 from ..sorter import scan_folder, group_by_date, group_by_month, group_by_city, move_grouped_items
 
@@ -45,7 +49,7 @@ TRANSLATIONS = {
         "hist_mode": "模式",
         "sett_header": "偏好设置",
         "sett_theme": "个性化主题",
-        "sett_dark": "启用深色模式 (Night Mode)",
+        "sett_dark": "启用深色模式",
         "sett_color": "选择主题色：",
         "sett_lang": "语言设置 / Language",
         "btn_open": "📂 打开文件夹",
@@ -56,6 +60,25 @@ TRANSLATIONS = {
         "msg_open_error": "无法打开文件夹",
         "msg_proc_error": "处理过程出错",
         "lang_changed": "语言已切换为简体中文",
+        "color_red": "红色",
+        "color_blue": "蓝色",
+        "color_green": "绿色",
+        "color_purple": "紫色",
+        "color_orange": "橙色",
+        "color_pink": "粉色",
+        "color_yellow": "黄色",
+        "color_cyan": "青色",
+        "color_indigo": "靛蓝",
+        "color_gray": "灰色",
+        "proc_scanning": "正在扫描文件...",
+        "proc_no_files": "没有找到可分类的图片。",
+        "proc_organizing": "找到 {} 张图片，正在分类...",
+        "proc_copying": "正在复制文件...",
+        "proc_moving": "正在移动文件...",
+        "proc_done": "完成！目标文件夹：\n{}",
+        "opt_date": "按日期",
+        "opt_month": "按月份",
+        "opt_city": "按地理位置",
     },
     "en": {
         "app_name": "C-SORTING",
@@ -95,6 +118,25 @@ TRANSLATIONS = {
         "msg_open_error": "Could not open folder",
         "msg_proc_error": "Error processing files",
         "lang_changed": "Language switched to English",
+        "color_red": "Red",
+        "color_blue": "Blue",
+        "color_green": "Green",
+        "color_purple": "Purple",
+        "color_orange": "Orange",
+        "color_pink": "Pink",
+        "color_yellow": "Yellow",
+        "color_cyan": "Cyan",
+        "color_indigo": "Indigo",
+        "color_gray": "Gray",
+        "proc_scanning": "Scanning files...",
+        "proc_no_files": "No images found to organize.",
+        "proc_organizing": "Found {} images, organizing...",
+        "proc_copying": "Copying files...",
+        "proc_moving": "Moving files...",
+        "proc_done": "Done! Target folder:\n{}",
+        "opt_date": "By Date",
+        "opt_month": "By Month",
+        "opt_city": "By Location",
     }
 }
 
@@ -228,22 +270,26 @@ class SortWorker(QThread):
     finished = pyqtSignal(dict)  # Changed to dict to return more info
     error = pyqtSignal(str)
 
-    def __init__(self, folder, mode, copy_mode):
+    def __init__(self, folder, mode, copy_mode, lang="zh-cn"):
         super().__init__()
         self.folder = Path(folder)
         self.mode = mode
         self.copy_mode = copy_mode
+        self.lang = lang
+
+    def t(self, key):
+        return TRANSLATIONS.get(self.lang, TRANSLATIONS["zh-cn"]).get(key, key)
 
     def run(self):
         try:
-            self.progress.emit("正在扫描文件...")
+            self.progress.emit(self.t("proc_scanning"))
             items = scan_folder(self.folder)
             count = len(items)
             if not items:
-                self.finished.emit({"success": False, "msg": "没有找到可分类的图片。"})
+                self.finished.emit({"success": False, "msg": self.t("proc_no_files")})
                 return
 
-            self.progress.emit(f"找到 {count} 张图片，正在分类...")
+            self.progress.emit(self.t("proc_organizing").format(count))
             
             if self.mode == 'date':
                 groups = group_by_date(items)
@@ -255,14 +301,14 @@ class SortWorker(QThread):
                 groups = group_by_city(items)
                 target = self.folder.parent / (self.folder.name + '_sorted_by_city')
             
-            action_str = "复制" if self.copy_mode else "移动"
-            self.progress.emit(f"正在{action_str}文件...")
+            action_key = "proc_copying" if self.copy_mode else "proc_moving"
+            self.progress.emit(self.t(action_key))
             
             move_grouped_items(groups, target, copy=self.copy_mode)
             
             self.finished.emit({
                 "success": True,
-                "msg": f"完成！目标文件夹：\n{target}",
+                "msg": self.t("proc_done").format(target),
                 "count": count,
                 "target": str(target),
                 "source": str(self.folder),
@@ -298,8 +344,24 @@ class App(QWidget):
         
         self.setWindowTitle('C-SORTING')
         self.resize(760, 520)
+        self.setMinimumWidth(405) # Ensure window doesn't get too small (set to 405 per request)
         self.apply_theme()
         self.setup_ui()
+
+    def resizeEvent(self, event):
+        """Handle responsive sidebar and main content layout adjustment."""
+        super().resizeEvent(event)
+        
+        # 1. Sidebar transition threshold: 680px
+        curr_width = self.width()
+        should_expand = curr_width > 680
+        
+        if should_expand != self.sidebar_expanded:
+            self.sidebar_expanded = should_expand
+            self.refresh_sidebar_ui()
+        else:
+            # Always sync content even if sidebar state didn't flip
+            self.sync_content_layout()
 
     def load_config(self):
         if self.config_file.exists():
@@ -368,7 +430,6 @@ class App(QWidget):
         #Sidebar {{
             background-color: {sidebar_bg};
             border-right: 1px solid {border_color};
-            min-width: 200px;
         }}
         #HistoryItem {{
             background-color: {input_bg};
@@ -382,18 +443,42 @@ class App(QWidget):
         #Sidebar QPushButton {{
             background-color: transparent;
             border: none;
-            border-radius: 8px;
-            padding: 10px 15px;
-            text-align: left;
+            border-radius: 12px;
+            padding: 12px;
             font-weight: 500;
-            margin: 2px 10px;
+            margin: 4px 10px;
             color: {text_color};
+            font-size: 16px;
+        }}
+        #Sidebar[collapsed="true"] QPushButton {{
+            text-align: center;
+            padding: 12px 0;
+            margin: 4px 5px;
+        }}
+        #Sidebar[collapsed="false"] QPushButton {{
+            text-align: left;
+            padding: 12px 15px;
+            margin: 4px 10px;
+        }}
+        #Sidebar #MenuBtn {{
+            margin-bottom: 5px;
+            font-size: 20px;
+            padding: 10px;
+            text-align: center;
+            background-color: transparent;
+            border: none;
+        }}
+        #Sidebar[collapsed="true"] #MenuBtn {{
+            width: 100%;
+        }}
+        #Sidebar[collapsed="false"] #MenuBtn {{
+            width: 50px;
         }}
         #Sidebar QPushButton:hover {{
             background-color: {"#e8e8ed" if not self.is_dark_mode else "#2c2c2e"};
         }}
         #Sidebar QPushButton[active="true"] {{
-            background-color: {bg};
+            background-color: {bg if self.is_dark_mode else "#e8e8ed"};
             color: {primary};
             border: 1px solid {border_color};
         }}
@@ -476,38 +561,71 @@ class App(QWidget):
         """
 
     def setup_ui(self):
+        # State for collapsible sidebar
+        self.sidebar_expanded = False
+        self.history_is_narrow = None
+        
         # Overall Horizontal Layout
         hbox = QHBoxLayout(self)
         hbox.setContentsMargins(0, 0, 0, 0)
         hbox.setSpacing(0)
 
         # 1. Sidebar
-        sidebar = QWidget()
-        sidebar.setObjectName("Sidebar")
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(0, 20, 0, 20)
+        self.sidebar_widget = QWidget()
+        self.sidebar_widget.setObjectName("Sidebar")
+        self.sidebar_widget.setProperty("collapsed", "true")
+        self.sidebar_widget.setFixedWidth(70)
         
-        self.app_title_label = QLabel(self.t("app_name"))
-        self.app_title_label.setStyleSheet(f"font-size: 20px; font-weight: bold; margin: 20px; color: {self.current_theme_color};")
-        sidebar_layout.addWidget(self.app_title_label)
+        # Sidebar animation
+        self.sidebar_anim = QPropertyAnimation(self.sidebar_widget, b"minimumWidth")
+        self.sidebar_anim.setDuration(300)
+        self.sidebar_anim.setEasingCurve(QEasingCurve.Type.OutQuint)
+        
+        self.sidebar_anim_max = QPropertyAnimation(self.sidebar_widget, b"maximumWidth")
+        self.sidebar_anim_max.setDuration(300)
+        self.sidebar_anim_max.setEasingCurve(QEasingCurve.Type.OutQuint)
 
-        self.btn_dashboard = QPushButton(self.t("nav_dashboard"))
+        self.sidebar_group = QParallelAnimationGroup()
+        self.sidebar_group.addAnimation(self.sidebar_anim)
+        self.sidebar_group.addAnimation(self.sidebar_anim_max)
+        
+        sidebar_layout = QVBoxLayout(self.sidebar_widget)
+        sidebar_layout.setContentsMargins(0, 5, 0, 15)
+        sidebar_layout.setSpacing(2)
+        
+        # Menu / Toggle Button
+        self.btn_menu = QPushButton("☰")
+        self.btn_menu.setObjectName("MenuBtn")
+        self.btn_menu.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_menu.clicked.connect(self.toggle_sidebar)
+        sidebar_layout.addWidget(self.btn_menu)
+
+        self.btn_dashboard = QPushButton()
         self.btn_dashboard.setProperty("active", "true")
-        self.btn_history = QPushButton(self.t("nav_history"))
-        self.btn_settings = QPushButton(self.t("nav_settings"))
+        self.btn_history = QPushButton()
+        self.btn_settings = QPushButton()
         
         self.sidebar_buttons = [self.btn_dashboard, self.btn_history, self.btn_settings]
+        self.update_sidebar_text()
+        
         for btn in self.sidebar_buttons:
             sidebar_layout.addWidget(btn)
             btn.clicked.connect(self.on_sidebar_click)
         
         sidebar_layout.addStretch()
         
-        version_label = QLabel("v2.1.0-Theme")
-        version_label.setStyleSheet("color: #86868b; font-size: 11px; margin: 20px;")
-        sidebar_layout.addWidget(version_label)
+        # App Title and Version at the bottom
+        self.app_title_label = QLabel(self.t("app_name"))
+        self.app_title_label.setStyleSheet(f"font-size: 20px; font-weight: bold; color: {self.current_theme_color}; margin-left: 20px; margin-bottom: 2px;")
+        self.app_title_label.setVisible(False)
+        sidebar_layout.addWidget(self.app_title_label)
+
+        self.version_label = QLabel("v1.0.0")
+        self.version_label.setStyleSheet("color: #86868b; font-size: 11px; margin-left: 20px; margin-bottom: 10px;")
+        self.version_label.setVisible(False)
+        sidebar_layout.addWidget(self.version_label)
         
-        hbox.addWidget(sidebar)
+        hbox.addWidget(self.sidebar_widget)
 
         # 2. Main content stack
         self.stack = QStackedWidget()
@@ -516,7 +634,7 @@ class App(QWidget):
         # --- Page 0: Dashboard ---
         dash_page = QWidget()
         dash_layout = QVBoxLayout(dash_page)
-        dash_layout.setContentsMargins(40, 40, 40, 40)
+        dash_layout.setContentsMargins(15, 30, 15, 30)
         dash_layout.setSpacing(25)
 
         self.dash_header = QLabel(self.t("dash_header"))
@@ -544,10 +662,14 @@ class App(QWidget):
         folder_group.addLayout(path_layout)
         dash_layout.addLayout(folder_group)
 
-        # Options area
-        options_layout = QHBoxLayout()
+        # Options area (using responsive flow-like layout)
+        self.options_container = QWidget()
+        options_layout = QHBoxLayout(self.options_container)
+        options_layout.setContentsMargins(0, 0, 0, 0)
+        options_layout.setSpacing(15)
         
         self.mode_group_box = QGroupBox(self.t("group_mode"))
+        self.mode_group_box.setMinimumWidth(180) # Prevent text squishing
         mode_v = QVBoxLayout()
         self.mode_group = QButtonGroup(self)
         self.rb_date = QRadioButton(self.t("mode_date"))
@@ -560,6 +682,7 @@ class App(QWidget):
         self.mode_group_box.setLayout(mode_v)
         
         self.extra_group_box = QGroupBox(self.t("group_extra"))
+        self.extra_group_box.setMinimumWidth(180)
         extra_v = QVBoxLayout()
         self.cb_copy = QCheckBox(self.t("copy_mode"))
         self.cb_copy.setChecked(True)
@@ -569,7 +692,7 @@ class App(QWidget):
         
         options_layout.addWidget(self.mode_group_box)
         options_layout.addWidget(self.extra_group_box)
-        dash_layout.addLayout(options_layout)
+        dash_layout.addWidget(self.options_container)
 
         # Action Button
         self.start_btn = QPushButton(self.t("btn_start"))
@@ -591,7 +714,7 @@ class App(QWidget):
         # --- Page 1: History ---
         self.history_page = QWidget()
         self.hist_v = QVBoxLayout(self.history_page)
-        self.hist_v.setContentsMargins(40, 40, 40, 40)
+        self.hist_v.setContentsMargins(15, 30, 15, 30)
         
         self.hist_header_label = QLabel(self.t("hist_header"))
         self.hist_header_label.setObjectName("Header")
@@ -600,6 +723,8 @@ class App(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setStyleSheet("background-color: transparent;")
         
         self.hist_container = QWidget()
@@ -637,29 +762,36 @@ class App(QWidget):
         theme_layout.addWidget(self.color_label_ui)
         
         colors_grid = QGridLayout()
-        themes = [
-            ("红色", "#fa2d48"), ("蓝色", "#007aff"), ("绿色", "#34c759"), ("紫色", "#af52de"), ("橙色", "#ff9500"),
-            ("粉色", "#ff2d55"), ("黄色", "#ffcc00"), ("青色", "#5ac8fa"), ("靛蓝", "#5856d6"), ("灰色", "#8e8e93")
+        colors_grid.setSpacing(10)
+        self.themes = [
+            ("color_red", "#fa2d48"), ("color_blue", "#007aff"), ("color_green", "#34c759"), ("color_purple", "#af52de"), ("color_orange", "#ff9500"),
+            ("color_pink", "#ff2d55"), ("color_yellow", "#ffcc00"), ("color_cyan", "#5ac8fa"), ("color_indigo", "#5856d6"), ("color_gray", "#8e8e93")
         ]
         self.color_group = QButtonGroup(self)
-        for i, (name, hex_code) in enumerate(themes):
-            rb = QRadioButton(name)
+        self.color_rbs = []
+        for i, (key, hex_code) in enumerate(self.themes):
+            rb = QRadioButton(self.t(key))
             if hex_code == self.current_theme_color:
                 rb.setChecked(True)
             self.color_group.addButton(rb, i)
-            row = i // 5
-            col = i % 5
-            colors_grid.addWidget(rb, row, col)
+            self.color_rbs.append(rb)
+            # Initial grid placement
+            colors_grid.addWidget(rb, i // 5, i % 5)
         
-        self.color_group.idClicked.connect(lambda id: self.change_theme_color(themes[id][1]))
+        self.color_group.idClicked.connect(lambda id: self.change_theme_color(self.themes[id][1]))
         
-        theme_layout.addLayout(colors_grid)
+        self.theme_layout_container = QWidget()
+        self.theme_layout_container.setLayout(colors_grid)
+        self.theme_grid_cols = 5 # Track current column state
+        theme_layout.addWidget(self.theme_layout_container)
         self.theme_group_box.setLayout(theme_layout)
         sett_v.addWidget(self.theme_group_box)
 
         # Language Section
         self.lang_group_box = QGroupBox(self.t("sett_lang"))
-        lang_layout = QHBoxLayout()
+        self.lang_container = QWidget()
+        lang_layout = QHBoxLayout(self.lang_container)
+        lang_layout.setContentsMargins(0, 0, 0, 0)
         self.lang_group = QButtonGroup(self)
         
         self.rb_zh = QRadioButton("简体中文")
@@ -677,7 +809,8 @@ class App(QWidget):
         
         self.lang_group.idClicked.connect(self.change_language)
         
-        self.lang_group_box.setLayout(lang_layout)
+        self.lang_group_box.setLayout(QVBoxLayout())
+        self.lang_group_box.layout().addWidget(self.lang_container)
         sett_v.addWidget(self.lang_group_box)
         
         sett_v.addStretch()
@@ -701,6 +834,110 @@ class App(QWidget):
         self.pulse_anim.setEndValue(0.3)
         self.pulse_anim.setLoopCount(-1)
         self.pulse_anim.setEasingCurve(QEasingCurve.Type.InOutSine)
+
+    def toggle_sidebar(self):
+        self.sidebar_expanded = not self.sidebar_expanded
+        self.refresh_sidebar_ui()
+
+    def refresh_sidebar_ui(self):
+        """Update sidebar visual state based on self.sidebar_expanded with animation."""
+        target_width = 210 if self.sidebar_expanded else 70
+        is_collapsed = "false" if self.sidebar_expanded else "true"
+        
+        # Animate width via group
+        self.sidebar_group.stop()
+        self.sidebar_anim.setStartValue(self.sidebar_widget.width())
+        self.sidebar_anim.setEndValue(target_width)
+        self.sidebar_anim_max.setStartValue(self.sidebar_widget.width())
+        self.sidebar_anim_max.setEndValue(target_width)
+        self.sidebar_group.start()
+
+        self.sidebar_widget.setProperty("collapsed", is_collapsed)
+        
+        # Show/Hide labels
+        self.app_title_label.setVisible(self.sidebar_expanded)
+        self.version_label.setVisible(self.sidebar_expanded)
+        self.update_sidebar_text()
+        
+        # Sync main content layout whenever sidebar state changes
+        self.sync_content_layout()
+        
+        # Refresh style
+        self.sidebar_widget.style().unpolish(self.sidebar_widget)
+        self.sidebar_widget.style().polish(self.sidebar_widget)
+
+    def sync_content_layout(self):
+        """Synchronize main content 'Flex' layout with current sidebar state."""
+        # FIX: Base layout decisions ONLY on the total window width to ensure coordination.
+        window_width = self.width()
+        
+        # Increased threshold to 680 to ensure text has absolute breathing room
+        is_small_mode = window_width < 680
+        
+        if is_small_mode:
+            # Narrow mode logic
+            if isinstance(self.options_container.layout(), QHBoxLayout):
+                new_layout = QVBoxLayout()
+                new_layout.addWidget(self.mode_group_box)
+                new_layout.addWidget(self.extra_group_box)
+                old_layout = self.options_container.layout()
+                QWidget().setLayout(old_layout)
+                self.options_container.setLayout(new_layout)
+
+            if hasattr(self, 'theme_layout_container') and isinstance(self.theme_layout_container.layout(), QGridLayout):
+                if self.theme_grid_cols != 2:
+                    grid = self.theme_layout_container.layout()
+                    for i, rb in enumerate(self.color_rbs):
+                        grid.addWidget(rb, i // 2, i % 2)
+                    self.theme_grid_cols = 2
+            
+            if isinstance(self.lang_container.layout(), QHBoxLayout):
+                new_lang_layout = QVBoxLayout()
+                new_lang_layout.addWidget(self.rb_zh)
+                new_lang_layout.addWidget(self.rb_en)
+                old_lang_layout = self.lang_container.layout()
+                QWidget().setLayout(old_lang_layout)
+                self.lang_container.setLayout(new_lang_layout)
+        else:
+            # Wide mode logic
+            if isinstance(self.options_container.layout(), QVBoxLayout):
+                new_layout = QHBoxLayout()
+                new_layout.setContentsMargins(0, 0, 0, 0)
+                new_layout.setSpacing(15)
+                new_layout.addWidget(self.mode_group_box)
+                new_layout.addWidget(self.extra_group_box)
+                old_layout = self.options_container.layout()
+                QWidget().setLayout(old_layout)
+                self.options_container.setLayout(new_layout)
+
+            if hasattr(self, 'theme_layout_container') and isinstance(self.theme_layout_container.layout(), QGridLayout):
+                if self.theme_grid_cols != 5:
+                    grid = self.theme_layout_container.layout()
+                    for i, rb in enumerate(self.color_rbs):
+                        grid.addWidget(rb, i // 5, i % 5)
+                    self.theme_grid_cols = 5
+
+            if isinstance(self.lang_container.layout(), QVBoxLayout):
+                new_lang_layout = QHBoxLayout()
+                new_lang_layout.setContentsMargins(0, 0, 0, 0)
+                new_lang_layout.addWidget(self.rb_zh)
+                new_lang_layout.addWidget(self.rb_en)
+                new_lang_layout.addStretch()
+                old_lang_layout = self.lang_container.layout()
+                QWidget().setLayout(old_lang_layout)
+                self.lang_container.setLayout(new_lang_layout)
+
+    def update_sidebar_text(self):
+        keys = ["nav_dashboard", "nav_history", "nav_settings"]
+        for i, btn in enumerate(self.sidebar_buttons):
+            full_text = self.t(keys[i])
+            if not self.sidebar_expanded:
+                # Show only first character (emoji)
+                btn.setText(full_text.split(" ")[0])
+                btn.setToolTip(full_text)
+            else:
+                btn.setText(full_text)
+                btn.setToolTip("")
 
     def on_sidebar_click(self):
         btn = self.sender()
@@ -733,9 +970,7 @@ class App(QWidget):
         
         # Update UI labels
         # Sidebar
-        self.btn_dashboard.setText(self.t("nav_dashboard"))
-        self.btn_history.setText(self.t("nav_history"))
-        self.btn_settings.setText(self.t("nav_settings"))
+        self.update_sidebar_text()
         self.app_title_label.setText(self.t("app_name"))
         
         # Dashboard
@@ -762,6 +997,10 @@ class App(QWidget):
         self.dark_mode_cb.setText(self.t("sett_dark"))
         self.color_label_ui.setText(self.t("sett_color"))
         self.lang_group_box.setTitle(self.t("sett_lang"))
+        
+        # Update color radio buttons text
+        for i, rb in enumerate(self.color_rbs):
+            rb.setText(self.t(self.themes[i][0]))
 
         ModernMessageBox.show_message(self, self.t("msg_success"), self.t("lang_changed"), mode="success")
 
@@ -773,7 +1012,7 @@ class App(QWidget):
     def change_theme_color(self, color):
         self.current_theme_color = color
         self.save_config()
-        self.app_title_label.setStyleSheet(f"font-size: 20px; font-weight: bold; margin: 20px; color: {color};")
+        self.app_title_label.setStyleSheet(f"font-size: 20px; font-weight: bold; margin-left: 20px; margin-bottom: 2px; color: {color};")
         self.apply_theme()
 
     def browse_folder(self):
@@ -802,7 +1041,7 @@ class App(QWidget):
             mode = 'city'
             
         # Start Thread
-        self.worker = SortWorker(folder, mode, self.cb_copy.isChecked())
+        self.worker = SortWorker(folder, mode, self.cb_copy.isChecked(), self.lang)
         self.worker.progress.connect(self.update_status)
         self.worker.finished.connect(self.on_finished)
         self.worker.error.connect(self.on_error)
@@ -852,7 +1091,9 @@ class App(QWidget):
             frame = QFrame()
             frame.setObjectName("HistoryItem")
             f_layout = QVBoxLayout(frame)
+            f_layout.setSpacing(10)
             
+            # --- Top Area ---
             top_line = QHBoxLayout()
             time_label = QLabel(item["time"])
             time_label.setStyleSheet(f"font-weight: bold; color: {self.current_theme_color};")
@@ -861,43 +1102,45 @@ class App(QWidget):
             top_line.addWidget(time_label)
             top_line.addStretch()
             top_line.addWidget(count_label)
+            f_layout.addLayout(top_line)
             
+            # --- Paths ---
             source_label = QLabel(f"{self.t('hist_src')}: {item['source']}")
             source_label.setStyleSheet("color: #86868b; font-size: 12px;")
+            source_label.setWordWrap(True)
             
             target_label = QLabel(f"{self.t('hist_dst')}: {item['target']}")
             target_label.setStyleSheet("color: #86868b; font-size: 12px;")
+            target_label.setWordWrap(True)
+            
+            f_layout.addWidget(source_label)
+            f_layout.addWidget(target_label)
+
+            # --- Bottom Area ---
+            mode_map = {"date": self.t("opt_date"), "month": self.t("opt_month"), "city": self.t("opt_city")}
+            mode_text = f"{self.t('hist_mode')}: {mode_map.get(item['mode'], item['mode'])}"
             
             bottom_line = QHBoxLayout()
-            mode_map = {"date": self.t("opt_date"), "month": self.t("opt_month"), "city": self.t("opt_city")}
-            mode_label = QLabel(f"{self.t('hist_mode')}: {mode_map.get(item['mode'], item['mode'])}")
+            mode_label = QLabel(mode_text)
             mode_label.setStyleSheet("font-size: 12px;")
             bottom_line.addWidget(mode_label)
             bottom_line.addStretch()
-
-            open_btn = QPushButton(self.t('btn_open'))
-            open_btn.setObjectName("SecondaryButton")
-            open_btn.setFixedWidth(130)
-            open_btn.setFixedHeight(32)
-            open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            open_btn.setStyleSheet(f"""
-                QPushButton#SecondaryButton {{ 
-                    font-size: 12px; 
-                    padding: 5px;
-                    border-radius: 8px;
-                }}
-            """)
-            # 使用闭包捕获路径
-            target_path = item['target']
-            open_btn.clicked.connect(lambda checked, p=target_path: self.open_folder(p))
+            
+            open_btn = self._create_hist_btn(item['target'])
             bottom_line.addWidget(open_btn)
-
-            f_layout.addLayout(top_line)
-            f_layout.addWidget(source_label)
-            f_layout.addWidget(target_label)
             f_layout.addLayout(bottom_line)
             
             self.hist_list_layout.addWidget(frame)
+
+    def _create_hist_btn(self, target_path):
+        btn = QPushButton(self.t('btn_open'))
+        btn.setObjectName("SecondaryButton")
+        btn.setFixedWidth(130)
+        btn.setFixedHeight(32)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setStyleSheet(f"QPushButton#SecondaryButton {{ font-size: 12px; padding: 5px; border-radius: 8px; }}")
+        btn.clicked.connect(lambda checked, p=target_path: self.open_folder(p))
+        return btn
 
     def open_folder(self, path):
         path = os.path.normpath(path)
