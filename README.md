@@ -1,60 +1,72 @@
 # C-SORTING
 
-**C-SORTING** æ˜¯ä¸€æ¬¾åŸºäº PyQt6 å¼€å‘çš„ç°ä»£åŒ–æ™ºèƒ½ç…§ç‰‡åˆ†ç±»å·¥å…·ï¼Œé‡‡ç”¨æç®€ä¸»ä¹‰è®¾è®¡ï¼Œæ—¨åœ¨å¸®åŠ©ç”¨æˆ·å¿«é€Ÿæ•´ç†æ‚ä¹±çš„ç…§ç‰‡åº“ã€‚
+[¼òÌåÖĞÎÄ](README.md) | [English](README.md#english)
 
-## ğŸŒŸ æ ¸å¿ƒåŠŸèƒ½
+**C-SORTING** ÊÇÒ»¿î»ùÓÚ PyQt6 ¿ª·¢µÄÏÖ´ú»¯ÖÇÄÜÕÕÆ¬·ÖÀà¹¤¾ß£¬²ÉÓÃ¼«¼òÖ÷ÒåÉè¼Æ£¬Ö¼ÔÚ°ïÖúÓÃ»§¿ìËÙÕûÀíÔÓÂÒµÄÕÕÆ¬¿â¡£
 
-- **æç®€ UI**ï¼šé‡‡ç”¨æµç•…çš„ PyQt6 åŠ¨ç”»ã€ä¾§è¾¹æ å¯¼èˆªå’Œåœ†è§’å¡ç‰‡å¸ƒå±€ã€‚
-- **æ™ºèƒ½åˆ†ç±»**ï¼š
-  - **æŒ‰æ—¥æœŸ**ï¼šç²¾ç¡®åˆ°å¤©ï¼ˆYYYY-MM-DDï¼‰ã€‚
-  - **æŒ‰æœˆä»½**ï¼šå°†ç…§ç‰‡æŒ‰æœˆå½’æ¡£ï¼ˆYYYY-MMï¼‰ã€‚
-  - **æŒ‰åœ°ç‚¹**ï¼šè¯»å– EXIF GPS ä¿¡æ¯ï¼Œè°ƒç”¨è…¾è®¯åœ°å›¾æœåŠ¡è‡ªåŠ¨è¯†åˆ«åŸå¸‚åç§°ã€‚
-- **ä¸ªæ€§åŒ–è®¾ç½®**ï¼šå†…ç½® 10 ç§é…è‰²æ–¹æ¡ˆï¼Œæ”¯æŒä¸€é”®åˆ‡æ¢**æ·±è‰²æ¨¡å¼**ã€‚
-- **å†å²è®°å½•**ï¼šè‡ªåŠ¨è®°å½•å¤„ç†ä»»åŠ¡ï¼Œæ–¹ä¾¿ä¸€é”®æ‰“å¼€ç›®æ ‡æ–‡ä»¶å¤¹ã€‚
-- **å¤šè¯­è¨€**ï¼šå®Œæ•´æ”¯æŒç®€ä½“ä¸­æ–‡ä¸è‹±æ–‡ã€‚
-- **æ— æŸæ•´ç†**ï¼šæ”¯æŒâ€œä¿ç•™åŸæ–‡ä»¶ï¼ˆå¤åˆ¶ï¼‰â€æˆ–â€œç§»åŠ¨æ–‡ä»¶â€æ¨¡å¼ã€‚
-- **é«˜æ€§èƒ½**ï¼šé‡‡ç”¨å¼‚æ­¥å¤šçº¿ç¨‹å¤„ç†ï¼Œå¤§æ‰¹é‡ç…§ç‰‡æ•´ç†æ—¶ç•Œé¢ä¸å¡é¡¿ã€‚
+**C-SORTING** is a modern intelligent photo sorting tool built with PyQt6. Designed with minimalism in mind, it helps users quickly organize cluttered photo libraries.
 
-## ğŸš€ å¿«é€Ÿå¼€å§‹
+---
 
-### æ–¹å¼ Aï¼šç›´æ¥è¿è¡Œ (æ¨è)
-å·²æä¾›æ‰“åŒ…å¥½çš„å•æ–‡ä»¶ç‰ˆæœ¬ï¼Œæ— éœ€å®‰è£… Python ç¯å¢ƒã€‚
-1. è¿›å…¥ `dist/` æ–‡ä»¶å¤¹ã€‚
-2. è¿è¡Œ `C-SORTING.exe` å³å¯å¼€å§‹ä½¿ç”¨ã€‚
+## ?? ºËĞÄ¹¦ÄÜ / Core Features
 
-### æ–¹å¼ Bï¼šå¼€å‘è€…æ¨¡å¼ (æºç è¿è¡Œ)
-1. å…‹éš†é¡¹ç›®åï¼Œåœ¨æ ¹ç›®å½•ä¸‹åˆ›å»ºå¹¶æ¿€æ´»è™šæ‹Ÿç¯å¢ƒï¼š
+- **¼«¼ò UI / Minimalist UI**: ²ÉÓÃÁ÷³©µÄ PyQt6 ¶¯»­¡¢²à±ßÀ¸µ¼º½ºÍÔ²½Ç¿¨Æ¬²¼¾Ö¡£ / Features smooth PyQt6 animations, sidebar navigation, and rounded card layouts.
+- **ÖÇÄÜ·ÖÀà / Smart Sorting**:
+  - **°´ÈÕÆÚ / By Date**: ¾«È·µ½Ìì (YYYY-MM-DD)¡£ / Precise to the day (YYYY-MM-DD).
+  - **°´ÔÂ·İ / By Month**: ½«ÕÕÆ¬°´ÔÂ¹éµµ (YYYY-MM)¡£ / Archive photos by month (YYYY-MM).
+  - **°´µØµã / By Location**: ¶ÁÈ¡ EXIF GPS ĞÅÏ¢£¬µ÷ÓÃµØÀí±àÂë·şÎñ×Ô¶¯Ê¶±ğ³ÇÊĞÃû³Æ¡£ / Reads EXIF GPS info and uses geocoding services to identify city names.
+- **¸öĞÔ»¯ÉèÖÃ / Personalization**: ÄÚÖÃ 10 ÖÖÅäÉ«·½°¸£¬Ö§³ÖÒ»¼üÇĞ»»**ÉîÉ«Ä£Ê½**¡£ / Built-in 10 color schemes with one-click **Dark Mode** toggle.
+- **ÀúÊ·¼ÇÂ¼ / History**: ×Ô¶¯¼ÇÂ¼´¦ÀíÈÎÎñ£¬·½±ãÒ»¼ü´ò¿ªÄ¿±êÎÄ¼ş¼Ğ¡£ / Automatically logs tasks for easy one-click access to target folders.
+- **¶àÓïÑÔ / Multi-language**: ÍêÕûÖ§³Ö¼òÌåÖĞÎÄÓëÓ¢ÎÄ¡£ / Full support for Simplified Chinese and English.
+- **ÎŞËğÕûÀí / Lossless Organization**: Ö§³Ö±£ÁôÔ­ÎÄ¼ş (¸´ÖÆ)»òÒÆ¶¯ÎÄ¼şÄ£Ê½¡£ / Supports both "Keep Originals (Copy)" and "Move Files" modes.
+- **¸ßĞÔÄÜ / High Performance**: ²ÉÓÃÒì²½¶àÏß³Ì´¦Àí£¬´óÅúÁ¿ÕÕÆ¬ÕûÀíÊ±½çÃæ²»¿¨¶Ù¡£ / Uses asynchronous multi-threading to ensure a smooth UI even when handling large batches.
+
+---
+
+## ?? ¿ìËÙ¿ªÊ¼ / Quick Start
+
+### ·½Ê½ A£ºÖ±½ÓÔËĞĞ (ÍÆ¼ö) / Option A: Direct Run (Recommended)
+ÒÑÌá¹©´ò°üºÃµÄµ¥ÎÄ¼ş°æ±¾£¬ÎŞĞè°²×° Python »·¾³¡£ / A pre-packaged single-file version is provided, no Python installation required.
+1. ½øÈë `dist/` ÎÄ¼ş¼Ğ¡£ / Enter the `dist/` folder.
+2. ÔËĞĞ `C-SORTING.exe` ¼´¿É¿ªÊ¼Ê¹ÓÃ¡£ / Run `C-SORTING.exe` to start.
+
+### ·½Ê½ B£º¿ª·¢ÕßÄ£Ê½ (Ô´ÂëÔËĞĞ) / Option B: Developer Mode (Run from Source)
+1. ¿ËÂ¡ÏîÄ¿ºó£¬ÔÚ¸ùÄ¿Â¼ÏÂ´´½¨²¢¼¤»îĞéÄâ»·¾³£º / After cloning, create and activate a virtual environment:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
-2. å®‰è£…ä¾èµ–ï¼š
+2. °²×°ÒÀÀµ£º / Install dependencies:
 ```powershell
 pip install -r requirements.txt
 ```
-3. å¯åŠ¨ç¨‹åºï¼š
+3. Æô¶¯³ÌĞò£º / Start the application:
 ```powershell
 python src/main.py
 ```
 
-## ğŸ› ï¸ é¡¹ç›®ç»“æ„
+---
 
-- `src/`ï¼šæºä»£ç 
-  - `gui/app.py`ï¼šç°ä»£åŒ–çš„ PyQt6 ç•Œé¢é€»è¾‘ã€ä¸»é¢˜å¼•æ“ä¸ç¿»è¯‘ç³»ç»Ÿã€‚
-  - `sorter.py`ï¼šæ ¸å¿ƒåˆ†ç±»ç®—æ³•ï¼ˆæ—¥æœŸ/æœˆä»½/åŸå¸‚åˆ†æï¼‰ã€‚
-  - `exif_utils.py`ï¼šç…§ç‰‡ EXIF å…ƒæ•°æ®è§£æï¼ˆæ—¶é—´ã€GPSï¼‰ã€‚
-  - `geocode.py`ï¼šåœ°ç†ç¼–ç æœåŠ¡ï¼Œé›†æˆè…¾è®¯åœ°å›¾ WebService APIã€‚
-  - `models/`ï¼šé¢„ç•™ AI è¯†åˆ«æ¥å£ï¼ˆå¦‚äººè„¸/ç‰©ä½“è¯†åˆ«ï¼‰ã€‚
-- `dist/`ï¼šå‘å¸ƒç‰ˆæœ¬ç›®å½•ã€‚
-- `assets/`ï¼šç¨‹åºå›¾æ ‡ä¸å†…éƒ¨èµ„æºã€‚
-- `config.json`ï¼šç”¨æˆ·é…ç½®æŒä¹…åŒ–ï¼ˆä¸»é¢˜è‰²ã€è¯­è¨€ã€æ·±è‰²æ¨¡å¼ï¼‰ã€‚
-- `history.json`ï¼šå¤„ç†å†å²æ•°æ®ã€‚
+## ??? ÏîÄ¿½á¹¹ / Project Structure
 
-## ğŸ“ æ³¨æ„äº‹é¡¹
+- `src/`: Ô´´úÂë / Source Code
+  - `gui/app.py`: ÏÖ´ú»¯µÄ PyQt6 ½çÃæÂß¼­¡¢Ö÷ÌâÒıÇæÓë·­ÒëÏµÍ³. / Modern PyQt6 UI logic, theme engine, and translation system.
+  - `sorter.py`: ºËĞÄ·ÖÀàËã·¨ (ÈÕÆÚ/ÔÂ·İ/³ÇÊĞ·ÖÎö). / Core sorting algorithms (Date/Month/City analysis).
+  - `exif_utils.py`: ÕÕÆ¬ EXIF ÔªÊı¾İ½âÎö (Ê±¼ä¡¢GPS). / Photo EXIF metadata parsing (Time, GPS).
+  - `geocode.py`: µØÀí±àÂë·şÎñÖ§³Ö. / Geocoding service support.
+  - `models/`: Ô¤Áô AI Ê¶±ğ½Ó¿Ú. / Reserved AI recognition interfaces.
+- `dist/`: ·¢²¼°æ±¾Ä¿Â¼ / Distribution directory
+- `assets/`: ³ÌĞòÍ¼±êÓëÄÚ²¿×ÊÔ´ / App icons and internal assets
+- `config.json`: ÓÃ»§ÅäÖÃ³Ö¾Ã»¯ / User configuration persistence
+- `history.json`: ´¦ÀíÀúÊ·Êı¾İ / Processing history data
 
-- **ç½‘ç»œè¦æ±‚**ï¼šä½¿ç”¨â€œæŒ‰åœ°ç†ä½ç½®â€åˆ†ç±»æ—¶éœ€è¿æ¥äº’è”ç½‘ã€‚
-- **é…ç½®æ–‡ä»¶**ï¼šç¨‹åºä¼šåœ¨æ‰€åœ¨ç›®å½•ä¸‹è‡ªåŠ¨ç”Ÿæˆ `config.json` å’Œ `history.json` ä»¥ä¿å­˜æ‚¨çš„åå¥½å’Œå†å²è®°å½•ã€‚
+---
 
-## è®¸å¯è¯
+## ?? ×¢ÒâÊÂÏî / Notes
+
+- **ÍøÂçÒªÇó / Network Requirements**: Ê¹ÓÃ°´µØÀíÎ»ÖÃ·ÖÀàÊ±ĞèÁ¬½Ó»¥ÁªÍø¡£ / Internet connection is required for "By Location" sorting.
+- **ÅäÖÃÎÄ¼ş / Configuration Files**: ³ÌĞò»áÔÚËùÔÚÄ¿Â¼ÏÂ×Ô¶¯Éú³É `config.json` ºÍ `history.json`¡£ / The app automatically generates `config.json` and `history.json` in its directory.
+
+## Ğí¿ÉÖ¤ / License
 MIT
-                                                                                                
+MIT
