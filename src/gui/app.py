@@ -18,7 +18,7 @@ from PyQt6.QtCore import (
     QEasingCurve, QAbstractAnimation, QByteArray,
     QParallelAnimationGroup
 )
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QPixmap, QIcon
 from ..sorter import scan_folder, group_by_date, group_by_month, group_by_city, move_grouped_items
 
 TRANSLATIONS = {
@@ -326,9 +326,13 @@ class App(QWidget):
         
         # Path configuration for portability (Handles Dev and EXE)
         if getattr(sys, 'frozen', False):
+            # For data (configs): Next to the EXE
             self.base_dir = Path(sys.executable).parent
+            # For resources (images/assets): Inside the bundled directory (_internal)
+            self.res_dir = Path(getattr(sys, '_MEIPASS', self.base_dir))
         else:
             self.base_dir = Path(__file__).parent.parent.parent
+            self.res_dir = self.base_dir
             
         # Load config (theme/color)
         self.config_file = self.base_dir / "config.json"
@@ -339,12 +343,29 @@ class App(QWidget):
         self.is_dark_mode = self.config.get("dark_mode", False)
         self.lang = self.config.get("language", "zh-cn")
         
+        # Available Themes
+        self.themes = [
+            ("color_red", "#fa2d48"), ("color_blue", "#007aff"), ("color_green", "#34c759"), ("color_purple", "#af52de"), ("color_orange", "#ff9500"),
+            ("color_pink", "#ff2d8c"), ("color_yellow", "#ffcc00"), ("color_cyan", "#5ac8fa"), ("color_indigo", "#5856d6"), ("color_gray", "#8e8e93")
+        ]
+        
         self.history_file = self.base_dir / "history.json"
         self.history_data = self.load_history()
         
         self.setWindowTitle('C-SORTING')
         self.resize(760, 520)
         self.setMinimumWidth(405) # Ensure window doesn't get too small (set to 405 per request)
+        
+        # Set Window Icon (Desktop/Taskbar)
+        # Use favicon.ico for window/taskbar, icon.png as high-res fallback
+        icon_path = self.res_dir / "assets" / "favicon.ico"
+        app_icon_path = self.res_dir / "assets" / "icon.png"
+        
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+        elif app_icon_path.exists():
+            self.setWindowIcon(QIcon(str(app_icon_path)))
+            
         self.apply_theme()
         self.setup_ui()
 
@@ -420,6 +441,15 @@ class App(QWidget):
         border_color = "#d2d2d7" if not self.is_dark_mode else "#38383a"
         input_bg = "#f5f5f7" if not self.is_dark_mode else "#2c2c2e"
         
+        # Specific hover colors for theme selection buttons
+        theme_hover_rules = ""
+        for i, (key, hex_code) in enumerate(self.themes):
+            theme_hover_rules += f"""
+            #ThemeRB_{i}::indicator:hover {{
+                border: 2px solid {hex_code};
+            }}
+            """
+
         return f"""
         QWidget {{
             background-color: {bg};
@@ -427,9 +457,13 @@ class App(QWidget):
             font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
             font-size: 14px;
         }}
+        {theme_hover_rules}
         #Sidebar {{
             background-color: {sidebar_bg};
             border-right: 1px solid {border_color};
+        }}
+        #Sidebar QLabel {{
+            background-color: transparent;
         }}
         #HistoryItem {{
             background-color: {input_bg};
@@ -518,27 +552,36 @@ class App(QWidget):
         }}
         QGroupBox {{
             border: 1px solid {border_color};
-            border-radius: 15px;
-            margin-top: 20px;
-            padding-top: 20px;
+            border-radius: 12px;
+            margin-top: 28px;
+            padding-top: 5px;
             font-weight: bold;
             color: {text_color};
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            left: 0px;
+            padding: 0 5px 3px 0;
+            border-bottom: 2px solid {primary};
         }}
         QRadioButton, QCheckBox {{
             spacing: 8px;
             color: {text_color};
+            padding: 2px;
         }}
         QRadioButton::indicator, QCheckBox::indicator {{
-            width: 22px;
-            height: 22px;
-            border-radius: 11px;
+            width: 20px;
+            height: 20px;
+            border-radius: 10px;
             border: 2px solid {border_color};
             background-color: {bg};
+            margin: 2px;
         }}
         QRadioButton::indicator:checked, QCheckBox::indicator:checked {{
             background-color: {primary};
             border: 2px solid {primary};
-            border-radius: 11px;
+            border-radius: 10px;
             image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABCklEQVRYhe2UO27CQBQA3zMSDR0lNX24ADkAmBvAGbhAGiRuADUdOUIipU8OkPS0UFJBQaKhYBEPK4mNP0uzI7mwvX4z0lorEggE7oxWORxQEemJCCLyqqpU6fstYMKFnm/5gGv6PuVtYGvkL0DkS94Avox8BTR9yRV4NvId8OBF7gLGiX0f5h0UAbG7Mu0d8Ah8G/ksl9wNi82gRVoE0AI25pt3oF5WwL8RQB34MGvXQCu33A2NnDQ1ApibNQegW0h+SwQwSrwflyLPEgF0gL15vuR09pfLHxFLTgfMmU+gUbo8JeLMFmhXJs8QEVcuT0S82a0oOvPmnwaoiciTu52q6k/RiEAgcFeOrMjv32JtTssAAAAASUVORK5CYII=);
         }}
         QRadioButton::indicator:hover, QCheckBox::indicator:hover {{
@@ -614,14 +657,36 @@ class App(QWidget):
         
         sidebar_layout.addStretch()
         
-        # App Title and Version at the bottom
+        # App Icon, Title and Version at the bottom
+        self.sidebar_logo_label = QLabel()
+        self.sidebar_logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        app_icon_path = self.res_dir / "assets" / "icon.png"
+        if app_icon_path.exists():
+            pixmap = QPixmap(str(app_icon_path))
+            target_size = 100
+            # High-quality scaling for HiDPI screens (prevents blurriness)
+            dpr = self.devicePixelRatioF()
+            scaled_pixmap = pixmap.scaled(
+                int(target_size * dpr), 
+                int(target_size * dpr), 
+                Qt.AspectRatioMode.KeepAspectRatio, 
+                Qt.TransformationMode.SmoothTransformation
+            )
+            scaled_pixmap.setDevicePixelRatio(dpr)
+            self.sidebar_logo_label.setPixmap(scaled_pixmap)
+        self.sidebar_logo_label.setStyleSheet("background: transparent; margin-bottom: 20px;")
+        self.sidebar_logo_label.setVisible(False)
+        sidebar_layout.addWidget(self.sidebar_logo_label)
+
         self.app_title_label = QLabel(self.t("app_name"))
-        self.app_title_label.setStyleSheet(f"font-size: 20px; font-weight: bold; color: {self.current_theme_color}; margin-left: 20px; margin-bottom: 2px;")
+        self.app_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.app_title_label.setStyleSheet(f"background: transparent; font-size: 20px; font-weight: bold; color: {self.current_theme_color}; margin-bottom: 2px;")
         self.app_title_label.setVisible(False)
         sidebar_layout.addWidget(self.app_title_label)
 
         self.version_label = QLabel("v1.0.0")
-        self.version_label.setStyleSheet("color: #86868b; font-size: 11px; margin-left: 20px; margin-bottom: 10px;")
+        self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.version_label.setStyleSheet("background: transparent; color: #86868b; font-size: 11px; margin-bottom: 10px;")
         self.version_label.setVisible(False)
         sidebar_layout.addWidget(self.version_label)
         
@@ -634,7 +699,7 @@ class App(QWidget):
         # --- Page 0: Dashboard ---
         dash_page = QWidget()
         dash_layout = QVBoxLayout(dash_page)
-        dash_layout.setContentsMargins(15, 30, 15, 30)
+        dash_layout.setContentsMargins(40, 30, 40, 30) # Increased margins
         dash_layout.setSpacing(25)
 
         self.dash_header = QLabel(self.t("dash_header"))
@@ -750,6 +815,7 @@ class App(QWidget):
         # Theme Section
         self.theme_group_box = QGroupBox(self.t("sett_theme"))
         theme_layout = QVBoxLayout()
+        theme_layout.setContentsMargins(15, 15, 15, 15)
         
         # Dark mode toggle
         self.dark_mode_cb = QCheckBox(self.t("sett_dark"))
@@ -762,15 +828,13 @@ class App(QWidget):
         theme_layout.addWidget(self.color_label_ui)
         
         colors_grid = QGridLayout()
+        colors_grid.setContentsMargins(0, 5, 0, 0)
         colors_grid.setSpacing(10)
-        self.themes = [
-            ("color_red", "#fa2d48"), ("color_blue", "#007aff"), ("color_green", "#34c759"), ("color_purple", "#af52de"), ("color_orange", "#ff9500"),
-            ("color_pink", "#ff2d55"), ("color_yellow", "#ffcc00"), ("color_cyan", "#5ac8fa"), ("color_indigo", "#5856d6"), ("color_gray", "#8e8e93")
-        ]
         self.color_group = QButtonGroup(self)
         self.color_rbs = []
         for i, (key, hex_code) in enumerate(self.themes):
             rb = QRadioButton(self.t(key))
+            rb.setObjectName(f"ThemeRB_{i}")
             if hex_code == self.current_theme_color:
                 rb.setChecked(True)
             self.color_group.addButton(rb, i)
@@ -809,8 +873,10 @@ class App(QWidget):
         
         self.lang_group.idClicked.connect(self.change_language)
         
-        self.lang_group_box.setLayout(QVBoxLayout())
-        self.lang_group_box.layout().addWidget(self.lang_container)
+        lang_v_layout = QVBoxLayout()
+        lang_v_layout.setContentsMargins(15, 15, 15, 15)
+        lang_v_layout.addWidget(self.lang_container)
+        self.lang_group_box.setLayout(lang_v_layout)
         sett_v.addWidget(self.lang_group_box)
         
         sett_v.addStretch()
@@ -855,6 +921,7 @@ class App(QWidget):
         self.sidebar_widget.setProperty("collapsed", is_collapsed)
         
         # Show/Hide labels
+        self.sidebar_logo_label.setVisible(self.sidebar_expanded)
         self.app_title_label.setVisible(self.sidebar_expanded)
         self.version_label.setVisible(self.sidebar_expanded)
         self.update_sidebar_text()
