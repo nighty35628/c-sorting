@@ -25,7 +25,7 @@ def latlon_to_city(lat: float, lon: float) -> Optional[str]:
     url = f"https://apis.map.qq.com/ws/geocoder/v1/?location={lat},{lon}&key={api_key}"
     
     # 增加较长的延迟，确保不触发腾讯地图每秒仅 5 次（未认证）或更低的并发限制
-    time.sleep(0.3) 
+    time.sleep(0.33) 
     
     try:
         # 腾讯地图 API 默认并发限制较低，我们通过增加间隔来规避
