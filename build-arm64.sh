@@ -3,7 +3,11 @@ set -e
 
 # Update and install build dependencies
 apt-get update
-apt-get install -y python3 python3-pip python3-venv binutils libglib2.0-0 libgl1-mesa-glx libegl1-mesa libxrender1 libxkbcommon-x11-0 libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shm0 libxcb-util1 libxcb-xfixes0 libxcb-shape0
+apt-get install -y python3 python3-pip python3-venv binutils build-essential \
+    qt6-base-dev qt6-base-dev-tools \
+    libglib2.0-0 libgl1-mesa-glx libegl1-mesa libxrender1 libxkbcommon-x11-0 \
+    libdbus-1-3 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+    libxcb-randr0 libxcb-render-util0 libxcb-shm0 libxcb-util1 libxcb-xfixes0 libxcb-shape0
 
 # Create virtual environment
 python3 -m venv venv
