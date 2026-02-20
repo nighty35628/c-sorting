@@ -76,10 +76,13 @@ MIT
 
 - **Minimalist UI**: Utilizes smooth PyQt6 animations, sidebar navigation, and rounded corner card layouts.
 - **Smart Sorting**:
+  - **Multi-format Support**: Supports not only photos (JPG, PNG, HEIC, WebP, BMP, etc.) but also video files (MP4, MOV, AVI, MKV, etc.).
   - **By Date**: Precision to the day (YYYY-MM-DD).
-  - **By Month**: Archives photos by month (YYYY-MM).
+  - **By Month**: Archives media by month (YYYY-MM).
   - **By Location**: Reads EXIF GPS information and identifies the nearest city using a **built-in offline city database** (337 prefecture-level cities).
+  - **Media Sorting**: Automatically steers photos and videos into separate target folders.
 - **Personalized Settings**: Built-in 10 color schemes, supporting one-click switching to **Dark Mode**.
+- **Interaction Optimization**: One-click "Open Folder" button in the completion dialog for immediate results preview.
 - **History**: Automatically records processing tasks for easy one-click opening of target folders.
 - **Multi-language**: Full support for Simplified Chinese and English.
 - **Lossless Organization**: Supports "Keep original files (Copy)" or "Move files" modes.
@@ -121,6 +124,11 @@ python src/main.py
 
 ## 🔄 Updates
 
+- **v1.1.0** (2026-02-20): Major 2026 Release.
+  - **Enhanced Format Support**: Supports WebP, GIF, BMP, JFIF, and more.
+  - **Video Classification**: Added support for major formats like MP4, MOV, AVI, and MKV.
+  - **Media Steering**: Automatically organizes photos and videos into designated top-level folders.
+  - **UX Improvements**: Added "Open Folder" button to completion dialog and unified button visual styles.
 - **v1.0.8**: Major refactor of geocoding logic. Migrated from Tencent Maps API to a **built-in offline city database**, enabling 100% offline operation with improved privacy and speed.
 
 ## License
