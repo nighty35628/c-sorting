@@ -10,7 +10,7 @@
 - **智能分类**：
   - **按日期**：精确到天（YYYY-MM-DD）。
   - **按月份**：将照片按月归档（YYYY-MM）。
-  - **按地点**：读取 EXIF GPS 信息，调用腾讯地图服务自动识别城市名称。
+  - **按地点**：读取 EXIF GPS 信息，采用内置的轻量级离线数据库自动识别城市名称，无需联网。
 - **个性化设置**：内置 10 种配色方案，支持一键切换**深色模式**。
 - **历史记录**：自动记录处理任务，方便一键打开目标文件夹。
 - **多语言**：完整支持简体中文与英文。
@@ -45,7 +45,7 @@ python src/main.py
   - `gui/app.py`：现代化的 PyQt6 界面逻辑、主题引擎与翻译系统。
   - `sorter.py`：核心分类算法（日期/月份/城市分析）。
   - `exif_utils.py`：照片 EXIF 元数据解析（时间、GPS）。
-  - `geocode.py`：地理编码服务，集成腾讯地图 WebService API。
+  - `geocode.py`：地理编码服务，内置 337 个地级行政区离线数据库。
   - `models/`：预留 AI 识别接口（如人脸/物体识别）。
 - `dist/`：发布版本目录。
 - `assets/`：程序图标与内部资源。
@@ -54,7 +54,7 @@ python src/main.py
 
 ## 📝 注意事项
 
-- **网络要求**：使用“按地理位置”分类时需连接互联网。
+- **离线支持**：得益于内置的轻量级城市数据库，地理位置分类现在完全支持离线运行，无需互联网。
 - **配置文件**：程序会在所在目录下自动生成 `config.json` 和 `history.json` 以保存您的偏好和历史记录。
 
 ## 许可证
@@ -72,7 +72,7 @@ MIT
 - **Smart Sorting**:
   - **By Date**: Precision to the day (YYYY-MM-DD).
   - **By Month**: Archives photos by month (YYYY-MM).
-  - **By Location**: Reads EXIF GPS information and uses Tencent Maps service to automatically identify city names.
+  - **By Location**: Reads EXIF GPS information and uses a **built-in offline city database** to automatically identify city names, no internet required.
 - **Personalized Settings**: Built-in 10 color schemes, supporting one-click switching to **Dark Mode**.
 - **History**: Automatically records processing tasks for easy one-click opening of target folders.
 - **Multi-language**: Full support for Simplified Chinese and English.
@@ -107,7 +107,7 @@ python src/main.py
   - `gui/app.py`: Modern PyQt6 interface logic, theme engine, and translation system.
   - `sorter.py`: Core sorting algorithm (Date/Month/City analysis).
   - `exif_utils.py`: Photo EXIF metadata parsing (Time, GPS).
-  - `geocode.py`: Geocoding service, integrated with Tencent Maps WebService API.
+  - `geocode.py`: Geocoding service with a **built-in offline database** of 337 Chinese prefecture-level administrative regions.
   - `models/`: Reserved for AI recognition interfaces (e.g., face/object recognition).
 - `dist/`: Distribution directory.
 - `assets/`: Program icons and internal resources.
@@ -116,7 +116,7 @@ python src/main.py
 
 ## 📝 Notes
 
-- **Network Requirements**: An internet connection is required when using "By Location" sorting.
+- **Offline Support**: Thanks to the built-in lightweight city database, location-based sorting now fully supports offline operation, with no internet required.
 - **Configuration Files**: The program automatically generates `config.json` and `history.json` in its directory to save your preferences and history.
 
 ## License
