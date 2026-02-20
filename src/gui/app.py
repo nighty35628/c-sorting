@@ -141,7 +141,7 @@ TRANSLATIONS = {
 }
 
 class ModernMessageBox(QDialog):
-    def __init__(self, parent, title, message, mode="info", theme_color="#fa2d48", is_dark=False):
+    def __init__(self, parent, title, message, mode="info", theme_color="#fa2d48", is_dark=False, target_path=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -234,35 +234,68 @@ class ModernMessageBox(QDialog):
         msg_label.setWordWrap(True)
         frame_layout.addWidget(msg_label)
         
-        # OK Button - Minimalist Style
+        # Buttons Setup
+        btn_v_layout = QVBoxLayout()
+        btn_v_layout.setSpacing(10)
+        btn_v_layout.setContentsMargins(0, 5, 0, 0)
+
+        # Style constants for secondary (neutral) style
+        s_bg = "#f5f5f7" if not is_dark else "#2c2c2e"
+        s_text = "#000000" if not is_dark else "#ffffff"
+        s_border = "#d2d2d7" if not is_dark else "#3a3a3c"
+        s_hover = "#e8e8ed" if not is_dark else "#3a3a3c"
+
+        # Open Folder Button (If path provided)
+        if target_path and hasattr(parent, 'open_folder'):
+            open_text = parent.t("btn_open") if hasattr(parent, "t") else "📂 Open"
+            open_btn = QPushButton(open_text)
+            open_btn.setMinimumHeight(44)
+            open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            
+            open_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {s_bg};
+                    color: {s_text};
+                    border: 1px solid {s_border};
+                    border-radius: 12px;
+                    font-weight: bold;
+                    font-size: 15px;
+                }}
+                QPushButton:hover {{
+                    background-color: {s_hover};
+                }}
+            """)
+            open_btn.clicked.connect(lambda: parent.open_folder(target_path))
+            btn_v_layout.addWidget(open_btn)
+
+        # OK Button - Now uses the same consistent neutral style
         ok_btn = QPushButton("OK")
         ok_btn.setMinimumHeight(44)
         ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         ok_btn.clicked.connect(self.accept)
         ok_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {theme_color};
-                color: white;
-                border: none;
+                background-color: {s_bg};
+                color: {s_text};
+                border: 1px solid {s_border};
                 border-radius: 12px;
                 font-weight: bold;
                 font-size: 15px;
-                margin-top: 10px;
             }}
             QPushButton:hover {{
-                background-color: {theme_color};
-                opacity: 0.9;
+                background-color: {s_hover};
             }}
         """)
-        frame_layout.addWidget(ok_btn)
+        btn_v_layout.addWidget(ok_btn)
+        frame_layout.addLayout(btn_v_layout)
         
         layout.addWidget(self.frame)
 
     @staticmethod
-    def show_message(parent, title, message, mode="info"):
+    def show_message(parent, title, message, mode="info", target_path=None):
         theme = parent.current_theme_color if hasattr(parent, 'current_theme_color') else "#fa2d48"
         dark = parent.is_dark_mode if hasattr(parent, 'is_dark_mode') else False
-        dlg = ModernMessageBox(parent, title, message, mode, theme, dark)
+        dlg = ModernMessageBox(parent, title, message, mode, theme, dark, target_path)
         dlg.exec()
 
 class SortWorker(QThread):
@@ -291,26 +324,51 @@ class SortWorker(QThread):
 
             self.progress.emit(self.t("proc_organizing").format(count))
             
+            # Separate photos and videos
+            photos = [it for it in items if it.media_type == 'image']
+            videos = [it for it in items if it.media_type == 'video']
+            
+            base_target = self.folder.parent
+            def get_target_paths(mode_suffix):
+                p_target = base_target / f"{self.folder.name}_photos_sorted_by_{mode_suffix}"
+                v_target = base_target / f"{self.folder.name}_videos_sorted_by_{mode_suffix}"
+                return p_target, v_target
+
             if self.mode == 'date':
-                groups = group_by_date(items)
-                target = self.folder.parent / (self.folder.name + '_sorted_by_date')
+                p_groups = group_by_date(photos)
+                v_groups = group_by_date(videos)
+                p_target, v_target = get_target_paths("date")
             elif self.mode == 'month':
-                groups = group_by_month(items)
-                target = self.folder.parent / (self.folder.name + '_sorted_by_month')
+                p_groups = group_by_month(photos)
+                v_groups = group_by_month(videos)
+                p_target, v_target = get_target_paths("month")
             else: # city
-                groups = group_by_city(items)
-                target = self.folder.parent / (self.folder.name + '_sorted_by_city')
+                p_groups = group_by_city(photos)
+                v_groups = group_by_city(videos)
+                p_target, v_target = get_target_paths("city")
             
             action_key = "proc_copying" if self.copy_mode else "proc_moving"
             self.progress.emit(self.t(action_key))
             
-            move_grouped_items(groups, target, copy=self.copy_mode)
+            if photos:
+                move_grouped_items(p_groups, p_target, copy=self.copy_mode)
+            if videos:
+                move_grouped_items(v_groups, v_target, copy=self.copy_mode)
             
+            # Prepare result message
+            res_msg = []
+            if photos:
+                res_msg.append(f"Photos: {p_target.name}")
+            if videos:
+                res_msg.append(f"Videos: {v_target.name}")
+            
+            final_msg = self.t("proc_done").format("\n".join(res_msg))
+
             self.finished.emit({
                 "success": True,
-                "msg": self.t("proc_done").format(target),
+                "msg": final_msg,
                 "count": count,
-                "target": str(target),
+                "target": str(p_target if photos else v_target),
                 "source": str(self.folder),
                 "mode": self.mode,
                 "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -684,7 +742,7 @@ class App(QWidget):
         self.app_title_label.setVisible(False)
         sidebar_layout.addWidget(self.app_title_label)
 
-        self.version_label = QLabel("v1.0.8")
+        self.version_label = QLabel("v1.1.0")
         self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.version_label.setStyleSheet("background: transparent; color: #86868b; font-size: 11px; margin-bottom: 10px;")
         self.version_label.setVisible(False)
@@ -1136,9 +1194,10 @@ class App(QWidget):
         self.status_label.setText(self.t("status_done").format(result.get("count", 0)))
         
         if result.get("success"):
+            target_path = result.get("target")
             self.save_history(result)
             self.refresh_history_ui()
-            ModernMessageBox.show_message(self, self.t("msg_success"), msg, mode="success")
+            ModernMessageBox.show_message(self, self.t("msg_success"), msg, mode="success", target_path=target_path)
         else:
             ModernMessageBox.show_message(self, self.t("msg_warning"), msg, mode="warning")
 
