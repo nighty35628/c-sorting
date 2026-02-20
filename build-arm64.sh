@@ -57,4 +57,4 @@ chmod 755 debian/usr/bin/C-SORTING
 chmod 755 debian/DEBIAN/control
 
 # Build the package
-dpkg-deb --build debian c-sorting_1.0.0_arm64.deb
+dpkg-deb --build debian c-sorting_1.0.8_arm64.deb

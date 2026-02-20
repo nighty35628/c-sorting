@@ -17,3 +17,6 @@ history.json
 # Executables
 *.exe
 setup/
+
+# Package distributions
+debian/

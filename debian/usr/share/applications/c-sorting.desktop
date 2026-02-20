@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=C-SORTING
-Comment=Modern intelligent photo sorting tool
-Exec=/usr/bin/C-SORTING
-Icon=/usr/share/icons/hicolor/256x256/apps/c-sorting.png
-Terminal=false
-Type=Application
-Categories=Utility;

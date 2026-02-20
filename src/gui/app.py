@@ -684,7 +684,7 @@ class App(QWidget):
         self.app_title_label.setVisible(False)
         sidebar_layout.addWidget(self.app_title_label)
 
-        self.version_label = QLabel("v1.0.0")
+        self.version_label = QLabel("v1.0.8")
         self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.version_label.setStyleSheet("background: transparent; color: #86868b; font-size: 11px; margin-bottom: 10px;")
         self.version_label.setVisible(False)
