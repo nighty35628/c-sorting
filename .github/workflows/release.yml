@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libusb-1.0-0-dev libudev-dev libfuse2
+          sudo apt-get install -y libusb-1.0-0-dev libudev-dev libfuse2 dpkg
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
@@ -37,6 +37,34 @@ jobs:
             --add-data "assets:assets" \
             --name "C-Sorting" \
             src/main.py
+
+      - name: Build Debian Package (.deb)
+        run: |
+          VERSION_CLEAN=$(echo ${{ github.ref_name }} | sed 's/^v//')
+          mkdir -p pkg/DEBIAN pkg/usr/bin pkg/usr/share/c-sorting pkg/usr/share/applications pkg/usr/share/pixmaps
+          
+          # 写入 control
+          cat <<EOF > pkg/DEBIAN/control
+          Package: c-sorting
+          Version: ${VERSION_CLEAN}-1
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Depends: python3, python3-pyqt6, python3-pil, python3-geopy
+          Maintainer: nighty35628 <nighty35628@users.noreply.github.com>
+          Description: A professional photo sorting tool
+          EOF
+
+          # 拷贝文件
+          cp -r src pkg/usr/share/c-sorting/
+          cp -r assets pkg/usr/share/c-sorting/
+          cp packaging/arch/c-sorting.sh pkg/usr/bin/c-sorting
+          chmod +x pkg/usr/bin/c-sorting
+          cp packaging/arch/c-sorting.desktop pkg/usr/share/applications/
+          cp assets/icon.png pkg/usr/share/pixmaps/c-sorting.png
+          
+          # 执行打包
+          dpkg-deb --build pkg c-sorting_${VERSION_CLEAN}-1_amd64.deb
 
       - name: Create AppImage
         env:
@@ -66,7 +94,7 @@ jobs:
         with:
           files: |
             C-Sorting-*-x86_64.AppImage
-            packaging/debian/*.deb
+            c-sorting_*.deb
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
