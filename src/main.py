@@ -17,8 +17,14 @@ import os
 
 def main():
     # 修复 Windows 任务栏不显示图标的问题
-    myappid = 'nighty.csorting.v1' 
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    # 仅在 Windows 上尝试设置 AppUserModelID，其他平台跳过
+    if sys.platform.startswith("win"):
+        try:
+            myappid = 'nighty.csorting.v1'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except Exception:
+            # 在非 Windows 或无法设置时忽略错误
+            pass
 
     app_qt = QApplication(sys.argv)
     
