@@ -50,12 +50,12 @@ jobs:
           Section: utils
           Priority: optional
           Architecture: amd64
-          Depends: python3, python3-pyqt6, python3-pil, python3-geopy
+          Depends: python3 (>= 3.10), python3-pyqt6, python3-pil, python3-geopy
           Maintainer: nighty35628 <nighty35628@users.noreply.github.com>
-          Description: A professional photo sorting tool
+          Description: Professional photo sorting tool based on EXIF and geocoding.
           EOF
 
-          # 拷贝文件
+          # 拷贝文件 (调整路径确保对应)
           cp -r src pkg/usr/share/c-sorting/
           cp -r assets pkg/usr/share/c-sorting/
           cp packaging/arch/c-sorting.sh pkg/usr/bin/c-sorting
@@ -70,31 +70,40 @@ jobs:
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-          # 下载 linuxdeploy
-          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage
+          # 下载官方连续构建版 linuxdeploy
+          wget -O linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
 
-          # 准备 AppDir
+          # 准备干净的 AppDir
           mkdir -p AppDir/usr/bin
           cp dist/C-Sorting AppDir/usr/bin/c-sorting
-          cp packaging/arch/c-sorting.desktop AppDir/
+          
+          # 获取图标并显示声明
           cp assets/icon.png AppDir/c-sorting.png
 
-          # 修正 Desktop 文件中的 Exec 路径为相对路径或简单名称（linuxdeploy 会自动处理）
-          sed -i 's|Exec=/usr/bin/c-sorting|Exec=c-sorting|' AppDir/c-sorting.desktop
+          # 修正 Desktop 并显式指定
+          cp packaging/arch/c-sorting.desktop .
+          sed -i 's|Exec=/usr/bin/c-sorting|Exec=c-sorting|' c-sorting.desktop
+          sed -i 's|Icon=c-sorting|Icon=c-sorting|' c-sorting.desktop
 
-          # 构建 AppImage (使用提取模式避免 FUSE 权限问题)
-          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir AppDir --output appimage
-          
-          # 重命名以便识别
-          mv C-Sorting-*.AppImage C-Sorting-${{ github.ref_name }}-x86_64.AppImage
+          # 构建 AppImage
+          export ARCH=x86_64
+          export OUTPUT="C-Sorting-${{ github.ref_name }}-x86_64.AppImage"
+          ./linuxdeploy --appimage-extract-and-run \
+            --appdir AppDir \
+            --desktop-file c-sorting.desktop \
+            --icon-file AppDir/c-sorting.png \
+            --output appimage
+
+          # 检查生成的文件
+          ls -lh *.AppImage || echo "No AppImage found"
 
       - name: Release to GitHub
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            C-Sorting-*-x86_64.AppImage
-            c-sorting_*.deb
+            *.AppImage
+            *.deb
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
