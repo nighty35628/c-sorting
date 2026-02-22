@@ -47,9 +47,9 @@ makepkg -si
 ### Linux (Debian / Ubuntu)
 你可以下载并安装预构建的 `.deb` 包：
 ```bash
-sudo apt install ./packaging/debian/c-sorting_1.1.0-1_all.deb
+sudo apt install ./packaging/debian/c-sorting_1.1.0-1_amd64.deb
 ```
-安装后即可通过应用菜单或终端命令 `c-sorting` 直接运行。
+或者你也可以为其他架构（如 ARM）构建自己的包。
 
 ## 🛠️ 项目结构
 
@@ -128,11 +128,11 @@ makepkg -si
 ```
 
 ### Linux (Debian / Ubuntu)
-You can download and install the pre-built `.deb` package:
+You can download and install the pre-built `.deb` package (AMD64):
 ```bash
-sudo apt install ./packaging/debian/c-sorting_1.1.0-1_all.deb
+sudo apt install ./packaging/debian/c-sorting_1.1.0-1_amd64.deb
 ```
-Once installed, you can start it via the application menu or the terminal command `c-sorting`.
+Or you can build your own package for other architectures (like ARM).
 3. Start the program:
 ```powershell
 python src/main.py
