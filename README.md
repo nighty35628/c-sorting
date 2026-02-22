@@ -22,6 +22,7 @@
 
 ## 🚀 快速开始
 
+### Windows
 1. 克隆项目后，在根目录下创建并激活虚拟环境：
 ```powershell
 python -m venv .venv
@@ -35,6 +36,14 @@ pip install -r requirements.txt
 ```powershell
 python src/main.py
 ```
+
+### Linux (Arch Linux)
+建议使用内置的打包方案安装，以获得原生菜单图标支持：
+```bash
+cd packaging/arch
+makepkg -si
+```
+安装后即可通过应用菜单或终端命令 `c-sorting` 直接运行。
 
 ## 🛠️ 项目结构
 
@@ -90,6 +99,7 @@ MIT
 
 ## 🚀 Quick Start
 
+### Windows
 1. After cloning the project, create and activate a virtual environment in the root directory:
 ```powershell
 python -m venv .venv
@@ -99,6 +109,18 @@ python -m venv .venv
 ```powershell
 pip install -r requirements.txt
 ```
+3. Run the program:
+```powershell
+python src/main.py
+```
+
+### Linux (Arch Linux)
+It's recommended to use the built-in packaging solution for native menu icon support:
+```bash
+cd packaging/arch
+makepkg -si
+```
+Once installed, you can start it via the application menu or the terminal command `c-sorting`.
 3. Start the program:
 ```powershell
 python src/main.py

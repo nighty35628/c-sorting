@@ -1,0 +1,36 @@
+# Maintainer: nighty35628 <nighty35628@users.noreply.github.com>
+pkgname=c-sorting
+pkgver=1.1.0
+pkgrel=1
+pkgdesc="A professional and automated photo sorting tool based on EXIF and geocoding."
+arch=('any')
+url="https://github.com/nighty35628/c-sorting"
+license=('MIT')
+depends=('python' 'python-pyqt6' 'python-pillow' 'python-geopy')
+optdepends=('python-piexif: for EXIF modification support (AUR)')
+source=("c-sorting.desktop" "c-sorting.sh")
+md5sums=('SKIP' 'SKIP') # Using SKIP since we're bundling from current folder
+
+package() {
+    # 1. 创建安装目录
+    install -dm755 "$pkgdir/usr/share/c-sorting"
+    install -dm755 "$pkgdir/usr/bin"
+    install -dm755 "$pkgdir/usr/share/applications"
+    install -dm755 "$pkgdir/usr/share/pixmaps"
+
+    # 2. 从项目根目录拷贝源代码及资源文件
+    cp -r "$startdir/../../src" "$pkgdir/usr/share/c-sorting/"
+    cp -r "$startdir/../../assets" "$pkgdir/usr/share/c-sorting/"
+
+    # 3. 安装启动脚本和桌面入口
+    install -m755 "$srcdir/c-sorting.sh" "$pkgdir/usr/bin/c-sorting"
+    install -m644 "$srcdir/c-sorting.desktop" "$pkgdir/usr/share/applications/c-sorting.desktop"
+    
+    # 4. 设置图标 (使用 icon.png 作为主图标, ico 作为兼容备选)
+    if [ -f "$startdir/../../assets/icon.png" ]; then
+        install -m644 "$startdir/../../assets/icon.png" "$pkgdir/usr/share/pixmaps/c-sorting.png"
+    fi
+    if [ -f "$startdir/../../assets/app_icon.ico" ]; then
+        install -m644 "$startdir/../../assets/app_icon.ico" "$pkgdir/usr/share/pixmaps/c-sorting.ico"
+    fi
+}

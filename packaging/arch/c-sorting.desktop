@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=C-Sorting
+Comment=Professional photo sorting tool
+Exec=/usr/bin/c-sorting
+Icon=c-sorting
+Terminal=false
+Type=Application
+Categories=Graphics;Photography;Utility;
+Keywords=photo;exif;sort;geocoding;
