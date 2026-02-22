@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: # 允许通过 GitHub Actions 界面手动触发
 
 permissions:
   contents: write
