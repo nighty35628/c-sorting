@@ -51,6 +51,9 @@ sudo apt install ./packaging/debian/c-sorting_1.1.0-1_amd64.deb
 ```
 或者你也可以为其他架构（如 ARM）构建自己的包。
 
+### Linux (Any Distro / AppImage)
+当你推送带有 `v*` 标签的代码到 GitHub 时，系统会自动打包 **AppImage**。你可以直接在 GitHub 的 **Releases** 页面下载单文件直接运行。
+
 ## 🛠️ 项目结构
 
 - `src/`：源代码
@@ -133,6 +136,9 @@ You can download and install the pre-built `.deb` package (AMD64):
 sudo apt install ./packaging/debian/c-sorting_1.1.0-1_amd64.deb
 ```
 Or you can build your own package for other architectures (like ARM).
+
+### Linux (Any Distro / AppImage)
+When you push code with a `v*` tag to GitHub, the system will automatically package an **AppImage**. You can download it directly from the **Releases** page and run it immediately.
 3. Start the program:
 ```powershell
 python src/main.py

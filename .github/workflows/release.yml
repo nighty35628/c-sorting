@@ -1,0 +1,73 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libusb-1.0-0-dev libudev-dev libfuse2
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Binary with PyInstaller
+        run: |
+          pyinstaller --noconfirm --onefile --windowed \
+            --add-data "src:src" \
+            --add-data "assets:assets" \
+            --name "C-Sorting" \
+            src/main.py
+
+      - name: Create AppImage
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          # 下载 linuxdeploy
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+
+          # 准备 AppDir
+          mkdir -p AppDir/usr/bin
+          cp dist/C-Sorting AppDir/usr/bin/c-sorting
+          cp packaging/arch/c-sorting.desktop AppDir/
+          cp assets/icon.png AppDir/c-sorting.png
+
+          # 修正 Desktop 文件中的 Exec 路径为相对路径或简单名称（linuxdeploy 会自动处理）
+          sed -i 's|Exec=/usr/bin/c-sorting|Exec=c-sorting|' AppDir/c-sorting.desktop
+
+          # 构建 AppImage (使用提取模式避免 FUSE 权限问题)
+          ./linuxdeploy-x86_64.AppImage --appimage-extract-and-run --appdir AppDir --output appimage
+          
+          # 重命名以便识别
+          mv C-Sorting-*.AppImage C-Sorting-${{ github.ref_name }}-x86_64.AppImage
+
+      - name: Release to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            C-Sorting-*-x86_64.AppImage
+            packaging/debian/*.deb
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
