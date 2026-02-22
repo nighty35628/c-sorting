@@ -43,6 +43,12 @@ python src/main.py
 cd packaging/arch
 makepkg -si
 ```
+
+### Linux (Debian / Ubuntu)
+你可以下载并安装预构建的 `.deb` 包：
+```bash
+sudo apt install ./packaging/debian/c-sorting_1.1.0-1_all.deb
+```
 安装后即可通过应用菜单或终端命令 `c-sorting` 直接运行。
 
 ## 🛠️ 项目结构
@@ -119,6 +125,12 @@ It's recommended to use the built-in packaging solution for native menu icon sup
 ```bash
 cd packaging/arch
 makepkg -si
+```
+
+### Linux (Debian / Ubuntu)
+You can download and install the pre-built `.deb` package:
+```bash
+sudo apt install ./packaging/debian/c-sorting_1.1.0-1_all.deb
 ```
 Once installed, you can start it via the application menu or the terminal command `c-sorting`.
 3. Start the program:
