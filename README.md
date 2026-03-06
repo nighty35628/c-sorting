@@ -9,18 +9,29 @@
 - **极简 UI**：采用流畅的 PyQt6 动画、侧边栏导航和圆角卡片布局。
 - **智能分类**：
   - **支持多种格式**：不仅支持照片（JPG, PNG, HEIC, WebP, BMP 等），还支持视频文件（MP4, MOV, AVI, MKV 等）。
-  - **按日期**：精确到天（YYYY-MM-DD）。
-  - **按月份**：将媒体按月归档（YYYY-MM）。
-  - **按地点**：读取 EXIF GPS 信息，采用 **内置离线城市数据库**（337 个地级行政区坐标）自动识别最近的城市名。
+  - **按日期/月份/城市**：精确到天/月/地点（内置离线 337 城市数据库）。
+  - **能工智人 (AI) - 零样本分类 (Zero-Shot Classification)**：
+    - **深度学习驱动**：集成基于 Transformer 架构的 **Chinese-CLIP** 大模型（Vision-Language Pre-training）。
+    - **跨模态理解**：不同于传统的物体识别，它能理解复杂的自然语言描述（如“阳光下的波光粼粼”、“穿着红色衣服的小女孩”），实现图像与语义的深度对齐。
+    - **本地推理优化**：通过 ONNX Runtime FP16 量化加速，在保障毫秒级推理速度的同时，实现 100% 隐私化本地运行，无需任何云端 API 调用。
+    - **十层多尺度采样 (10-View Multi-scale Sampling)**：对单张照片进行多尺度裁剪采样，确保不同角度与精细度的特征都能被精准捕获。
   - **媒体分拣**：自动将照片和视频分流至不同的目标文件夹。
 - **个性化设置**：内置 10 种配色方案，支持一键切换**深色模式**。
-- **交互优化**：处理完成后可直接点击对话框中的“打开文件夹”按钮查看结果。
-- **历史记录**：自动记录处理任务，方便一键打开目标文件夹。
+- **交互优化**：
+  - **丝滑进度条**：采用 5000 级超细分度与非线性动力学（Bezier/Sine）动画，模拟“努力工作”的节奏感。
+  - **处理完成**：处理完成后可直接点击对话框中的“一键打开文件夹”查看结果。
+- **历史管理**：自动记录处理任务，支持**实时清空历史记录**。
 - **多语言**：完整支持简体中文与英文。
-- **无损整理**：支持“保留原文件（复制）”或“移动文件”模式。
 - **高性能**：采用异步多线程处理，大批量照片整理时界面不卡顿。
 
 ## 🚀 快速开始
+
+### ⚠️ 环境准备 (重要)
+由于模型文件较大（约 300MB+），本项目仓库未包含预训练模型。在使用 AI 分类功能前，请确保：
+1. 在项目根目录下创建 `assets/models/chinese-clip-vit-base-patch16/` 文件夹。
+2. 下载模型文件并放入上述文件夹内。
+   - **百度网盘**: [点击下载](https://pan.baidu.com/s/1fCbXxHOEJfCzXDD5zBNsUg?pwd=nity) (提取码: `nity`)
+   - **更多下载地址**: 我们后续将同步上线 **Hugging Face** 与 **魔搭 (ModelScope)** 镜像，敬请期待。
 
 ### Windows
 1. 克隆项目后，在根目录下创建并激活虚拟环境：
@@ -47,39 +58,27 @@ makepkg -si
 ### Linux (Debian / Ubuntu)
 你可以下载并安装预构建的 `.deb` 包：
 ```bash
-sudo apt install ./packaging/debian/c-sorting_1.1.0-1_amd64.deb
+sudo apt install ./packaging/debian/c-sorting_1.2.0-1_amd64.deb
 ```
-或者你也可以为其他架构（如 ARM）构建自己的包。
-
-### Linux (Any Distro / AppImage)
-当你推送带有 `v*` 标签的代码到 GitHub 时，系统会自动打包 **AppImage**。你可以直接在 GitHub 的 **Releases** 页面下载单文件直接运行。
 
 ## 🛠️ 项目结构
 
 - `src/`：源代码
-  - `gui/app.py`：现代化的 PyQt6 界面逻辑、主题引擎与翻译系统。
-  - `sorter.py`：核心分类算法（日期/月份/城市分析）。
-  - `exif_utils.py`：照片 EXIF 元数据解析（时间、GPS）。
-  - `geocode.py`：地理编码服务，内置 337 个中国地级行政区坐标的离线查询逻辑。
-  - `models/`：预留 AI 识别接口（如人脸/物体识别）。
-- `readme-history/`：存放历史版本的 README 文件。
-- `assets/`：程序图标与内部资源。
+  - `gui/app.py`：现代化的 PyQt6 界面逻辑、主题引擎与进度条动画系统。
+  - `models/recognition.py`：基于 ONNX 的 Chinese-CLIP 识别模型。
+  - `sorter.py`：核心分类算法（日期/月份/城市/AI 识别）。
+- `assets/`：程序图标、内置库与 AI 模型。
 - `config.json`：用户配置持久化（主题色、语言、深色模式）。
 - `history.json`：处理历史数据。
 
-## 📝 注意事项
-
-- **离线支持**：得益于内置的轻量级城市坐标数据库，地理位置分类现在完全支持离线运行，无需互联网。
-- **配置文件**：程序会在所在目录下自动生成 `config.json` 和 `history.json` 以保存您的偏好和历史记录。
-
 ## 🔄 版本更新
 
-- **v1.1.0** (2026-02-20): 2026 年度大版本。
-  - **增强格式支持**：支持 WebP, GIF, BMP, JFIF 等更多图片格式。
-  - **增加视频分类**：支持 MP4, MOV, AVI, MKV 等主流视频分类。
-  - **媒体分拣逻辑**：自动按媒体类型（照片/视频）分送不同的顶级文件夹。
-  - **UI 交互改进**：任务结束后支持在弹窗内一键打开文件夹，统一了按钮视觉风格。
-- **v1.0.8**: 重构地理分类逻辑。从腾讯地图 API 迁移至**内置本地城市数据库**方案，实现 100% 离线运行，显著提升隐私性与处理速度。
+- **v1.2.0** (2026-03-06): **AI 与感知性能升级**。
+  - **能工智人 (AI) 分类**：新增基于 Chinese-CLIP 的智能分类功能。
+  - **感知性能优化**：重构进度条逻辑，引入 5000 级分度与非线性 Keyframe 动画，进度跟随“计算压力”产生起伏感，极致丝滑。
+  - **UI 细节打磨**：重新平衡了 Dashboard 布局，优化了 AI 预设标签的 3x4 矩阵显示，新增物理 SVG 勾选框图标。
+  - **历史管理**：新增“清空历史记录”功能，支持实时 UI 刷新。
+- **v1.1.0**: 增加多格式支持与初步视频处理。
 
 ## 许可证
 MIT
@@ -94,22 +93,29 @@ MIT
 
 - **Minimalist UI**: Utilizes smooth PyQt6 animations, sidebar navigation, and rounded corner card layouts.
 - **Smart Sorting**:
-  - **Multi-format Support**: Supports not only photos (JPG, PNG, HEIC, WebP, BMP, etc.) but also video files (MP4, MOV, AVI, MKV, etc.).
-  - **By Date**: Precision to the day (YYYY-MM-DD).
-  - **By Month**: Archives media by month (YYYY-MM).
-  - **By Location**: Reads EXIF GPS information and identifies the nearest city using a **built-in offline city database** (337 prefecture-level cities).
-  - **Media Sorting**: Automatically steers photos and videos into separate target folders.
-- **Personalized Settings**: Built-in 10 color schemes, supporting one-click switching to **Dark Mode**.
-- **Interaction Optimization**: One-click "Open Folder" button in the completion dialog for immediate results preview.
-- **History**: Automatically records processing tasks for easy one-click opening of target folders.
-- **Multi-language**: Full support for Simplified Chinese and English.
-- **Lossless Organization**: Supports "Keep original files (Copy)" or "Move files" modes.
-- **High Performance**: Uses asynchronous multi-threaded processing, ensuring the interface remains responsive during bulk photo organization.
+  - **Multi-format Support**: Photos (JPG, PNG, HEIC, WebP, BMP, etc.) and video files (MP4, MOV, AVI, MKV, etc.).
+  - **By Date/Month/Location**: Organized by time or offline city name.
+  * **Clever Craftsman AI - Zero-Shot Deep Learning**:
+    - **Vision-Language Alignment**: Driven by **Chinese-CLIP** (Transformer-based), enabling semantic understanding of natural language prompts like *"Sparkling water in the sunlight"* or *"Girl in red dress"*.
+    - **Cross-Modal Retrieval**: Unlike simple object detection, it understands full descriptive concepts through its massive pre-trained knowledge base.
+    - **Privacy-First Inference**: Fully localized **ONNX Runtime (FP16)** inference ensures that no photo data ever leaves your computer, achieving millisecond-level processing.
+    - **10-View Multi-scale Sampling**: Employs multi-scale cropping strategies to capture subtle details and improve recognition accuracy.
+- **Perception Optimization**:
+  * **Buttery Smooth Progress**: 5000-level granularity with non-linear kinetic (Bezier/Sine) animations that mimic "computational effort".
+- **History Management**: Track tasks and **Clear History** with one click.
+- **Multi-language**: Full Chinese and English support.
 
-## 🚀 Quick Start
+## � Quick Start
+
+### ⚠️ Model Preparation (Important)
+Due to file size limits, the pre-trained models are not included in this repository. To use the AI sorting feature:
+1. Create a folder at `assets/models/chinese-clip-vit-base-patch16/` in the project root.
+2. Download and place the model files into the folder.
+   - **Baidu Netdisk**: [Download here](https://pan.baidu.com/s/1fCbXxHOEJfCzXDD5zBNsUg?pwd=nity) (Password: `nity`)
+   - **Coming Soon**: We will soon provide mirrors on **Hugging Face** and **ModelScope**.
 
 ### Windows
-1. After cloning the project, create and activate a virtual environment in the root directory:
+1. Clone the project, then create and activate a virtual environment in the root directory:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -118,59 +124,18 @@ python -m venv .venv
 ```powershell
 pip install -r requirements.txt
 ```
-3. Run the program:
+3. Start the application:
 ```powershell
 python src/main.py
 ```
 
-### Linux (Arch Linux)
-It's recommended to use the built-in packaging solution for native menu icon support:
-```bash
-cd packaging/arch
-makepkg -si
-```
+## �🔄 What's New
 
-### Linux (Debian / Ubuntu)
-You can download and install the pre-built `.deb` package (AMD64):
-```bash
-sudo apt install ./packaging/debian/c-sorting_1.1.0-1_amd64.deb
-```
-Or you can build your own package for other architectures (like ARM).
-
-### Linux (Any Distro / AppImage)
-When you push code with a `v*` tag to GitHub, the system will automatically package an **AppImage**. You can download it directly from the **Releases** page and run it immediately.
-3. Start the program:
-```powershell
-python src/main.py
-```
-
-## 🛠️ Project Structure
-
-- `src/`: Source Code
-  - `gui/app.py`: Modern PyQt6 interface logic, theme engine, and translation system.
-  - `sorter.py`: Core sorting algorithm (Date/Month/City analysis).
-  - `exif_utils.py`: Photo EXIF metadata parsing (Time, GPS).
-  - `geocode.py`: Geocoding service with a **built-in offline database** of 337 Chinese prefecture-level administrative regions.
-  - `models/`: Reserved for AI recognition interfaces (e.g., face/object recognition).
-- `readme-history/`: Archive of historical README files.
-- `assets/`: Program icons and internal resources.
-- `config.json`: User configuration persistence (Theme color, language, dark mode).
-- `history.json`: Processing history data.
-
-## 📝 Notes
-
-- **Offline Support**: Thanks to the built-in lightweight city database, location-based sorting now fully supports offline operation, with no internet required.
-- **Configuration Files**: The program automatically generates `config.json` and `history.json` in its directory to save your preferences and history.
-
-## 🔄 Updates
-
-- **v1.1.0** (2026-02-20): Major 2026 Release.
-  - **Enhanced Format Support**: Supports WebP, GIF, BMP, JFIF, and more.
-  - **Video Classification**: Added support for major formats like MP4, MOV, AVI, and MKV.
-  - **Media Steering**: Automatically organizes photos and videos into designated top-level folders.
-  - **UX Improvements**: Added "Open Folder" button to completion dialog and unified button visual styles.
-- **v1.0.8**: Major refactor of geocoding logic. Migrated from Tencent Maps API to a **built-in offline city database**, enabling 100% offline operation with improved privacy and speed.
+- **v1.2.0** (2026-03-06): **AI & Perception Performance Update**.
+  - **Clever Craftsman AI**: Smart categorization using Chinese-CLIP models.
+  - **Smooth UI Progress**: New 5000-level progress bar with "Heartbeat" keyframe animations.
+  - **UI Refinement**: Rebalanced dashboard, 3x4 Grid tags, and new SVG-based checkbox styles.
+  - **History**: Added "Clear History" button with immediate UI feedback.
 
 ## License
-MIT
-
+AGPL-3.0

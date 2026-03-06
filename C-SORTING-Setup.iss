@@ -3,7 +3,7 @@
 [Setup]
 AppId={{C-SORTING-BY-NIGHTY}}
 AppName=C-SORTING
-AppVersion=1.0.8
+AppVersion=1.2.0
 AppPublisher=Nighty
 DefaultDirName={autopf}\C-SORTING
 DefaultGroupName=C-SORTING

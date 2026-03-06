@@ -1,69 +1,87 @@
-﻿[绠€浣撲腑鏂嘳(#c-sorting) | [English](#c-sorting-en)
+[简体中文](#c-sorting) | [English](#c-sorting-en)
 
 # C-SORTING
 
-**C-SORTING** 鏄竴娆惧熀浜?PyQt6 寮€鍙戠殑鐜颁唬鍖栨櫤鑳界収鐗囧垎绫诲伐鍏凤紝閲囩敤鏋佺畝涓讳箟璁捐锛屾棬鍦ㄥ府鍔╃敤鎴峰揩閫熸暣鐞嗘潅涔辩殑鐓х墖搴撱€?
+**C-SORTING** 是一款基于 PyQt6 开发的现代化智能照片分类工具，采用极简主义设计，旨在帮助用户快速整理杂乱的照片库。
 
-## 馃専 鏍稿績鍔熻兘
+## 🌟 核心功能
 
-- **鏋佺畝 UI**锛氶噰鐢ㄦ祦鐣呯殑 PyQt6 鍔ㄧ敾銆佷晶杈规爮瀵艰埅鍜屽渾瑙掑崱鐗囧竷灞€銆?
-- **鏅鸿兘鍒嗙被**锛?
-  - **鏀寔澶氱鏍煎紡**锛氫笉浠呮敮鎸佺収鐗囷紙JPG, PNG, HEIC, WebP, BMP 绛夛級锛岃繕鏀寔瑙嗛鏂囦欢锛圡P4, MOV, AVI, MKV 绛夛級銆?
-  - **鎸夋棩鏈?*锛氱簿纭埌澶╋紙YYYY-MM-DD锛夈€?
-  - **鎸夋湀浠?*锛氬皢濯掍綋鎸夋湀褰掓。锛圷YYY-MM锛夈€?
-  - **鎸夊湴鐐?*锛氳鍙?EXIF GPS 淇℃伅锛岄噰鐢?**鍐呯疆绂荤嚎鍩庡競鏁版嵁搴?*锛?37 涓湴绾ц鏀垮尯鍧愭爣锛夎嚜鍔ㄨ瘑鍒渶杩戠殑鍩庡競鍚嶃€?
-  - **濯掍綋鍒嗘嫞**锛氳嚜鍔ㄥ皢鐓х墖鍜岃棰戝垎娴佽嚦涓嶅悓鐨勭洰鏍囨枃浠跺す銆?
-- **涓€у寲璁剧疆**锛氬唴缃?10 绉嶉厤鑹叉柟妗堬紝鏀寔涓€閿垏鎹?*娣辫壊妯″紡**銆?
-- **浜や簰浼樺寲**锛氬鐞嗗畬鎴愬悗鍙洿鎺ョ偣鍑诲璇濇涓殑鈥滄墦寮€鏂囦欢澶光€濇寜閽煡鐪嬬粨鏋溿€?
-- **鍘嗗彶璁板綍**锛氳嚜鍔ㄨ褰曞鐞嗕换鍔★紝鏂逛究涓€閿墦寮€鐩爣鏂囦欢澶广€?
-- **澶氳瑷€**锛氬畬鏁存敮鎸佺畝浣撲腑鏂囦笌鑻辨枃銆?
-- **鏃犳崯鏁寸悊**锛氭敮鎸佲€滀繚鐣欏師鏂囦欢锛堝鍒讹級鈥濇垨鈥滅Щ鍔ㄦ枃浠垛€濇ā寮忋€?
-- **楂樻€ц兘**锛氶噰鐢ㄥ紓姝ュ绾跨▼澶勭悊锛屽ぇ鎵归噺鐓х墖鏁寸悊鏃剁晫闈笉鍗￠】銆?
+- **极简 UI**：采用流畅的 PyQt6 动画、侧边栏导航和圆角卡片布局。
+- **智能分类**：
+  - **支持多种格式**：不仅支持照片（JPG, PNG, HEIC, WebP, BMP 等），还支持视频文件（MP4, MOV, AVI, MKV 等）。
+  - **按日期**：精确到天（YYYY-MM-DD）。
+  - **按月份**：将媒体按月归档（YYYY-MM）。
+  - **按地点**：读取 EXIF GPS 信息，采用 **内置离线城市数据库**（337 个地级行政区坐标）自动识别最近的城市名。
+  - **媒体分拣**：自动将照片和视频分流至不同的目标文件夹。
+- **个性化设置**：内置 10 种配色方案，支持一键切换**深色模式**。
+- **交互优化**：处理完成后可直接点击对话框中的“打开文件夹”按钮查看结果。
+- **历史记录**：自动记录处理任务，方便一键打开目标文件夹。
+- **多语言**：完整支持简体中文与英文。
+- **无损整理**：支持“保留原文件（复制）”或“移动文件”模式。
+- **高性能**：采用异步多线程处理，大批量照片整理时界面不卡顿。
 
-## 馃殌 蹇€熷紑濮?
+## 🚀 快速开始
 
-1. 鍏嬮殕椤圭洰鍚庯紝鍦ㄦ牴鐩綍涓嬪垱寤哄苟婵€娲昏櫄鎷熺幆澧冿細
+### Windows
+1. 克隆项目后，在根目录下创建并激活虚拟环境：
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
-2. 瀹夎渚濊禆锛?
+2. 安装依赖：
 ```powershell
 pip install -r requirements.txt
 ```
-3. 鍚姩绋嬪簭锛?
+3. 启动程序：
 ```powershell
 python src/main.py
 ```
 
-## 馃洜锔?椤圭洰缁撴瀯
+### Linux (Arch Linux)
+建议使用内置的打包方案安装，以获得原生菜单图标支持：
+```bash
+cd packaging/arch
+makepkg -si
+```
 
-- `src/`锛氭簮浠ｇ爜
-  - `gui/app.py`锛氱幇浠ｅ寲鐨?PyQt6 鐣岄潰閫昏緫銆佷富棰樺紩鎿庝笌缈昏瘧绯荤粺銆?
-  - `sorter.py`锛氭牳蹇冨垎绫荤畻娉曪紙鏃ユ湡/鏈堜唤/鍩庡競鍒嗘瀽锛夈€?
-  - `exif_utils.py`锛氱収鐗?EXIF 鍏冩暟鎹В鏋愶紙鏃堕棿銆丟PS锛夈€?
-  - `geocode.py`锛氬湴鐞嗙紪鐮佹湇鍔★紝鍐呯疆 337 涓腑鍥藉湴绾ц鏀垮尯鍧愭爣鐨勭绾挎煡璇㈤€昏緫銆?
-  - `models/`锛氶鐣?AI 璇嗗埆鎺ュ彛锛堝浜鸿劯/鐗╀綋璇嗗埆锛夈€?
-- `readme-history/`锛氬瓨鏀惧巻鍙茬増鏈殑 README 鏂囦欢銆?
-- `assets/`锛氱▼搴忓浘鏍囦笌鍐呴儴璧勬簮銆?
-- `config.json`锛氱敤鎴烽厤缃寔涔呭寲锛堜富棰樿壊銆佽瑷€銆佹繁鑹叉ā寮忥級銆?
-- `history.json`锛氬鐞嗗巻鍙叉暟鎹€?
+### Linux (Debian / Ubuntu)
+你可以下载并安装预构建的 `.deb` 包：
+```bash
+sudo apt install ./packaging/debian/c-sorting_1.1.0-1_amd64.deb
+```
+或者你也可以为其他架构（如 ARM）构建自己的包。
 
-## 馃摑 娉ㄦ剰浜嬮」
+### Linux (Any Distro / AppImage)
+当你推送带有 `v*` 标签的代码到 GitHub 时，系统会自动打包 **AppImage**。你可以直接在 GitHub 的 **Releases** 页面下载单文件直接运行。
 
-- **绂荤嚎鏀寔**锛氬緱鐩婁簬鍐呯疆鐨勮交閲忕骇鍩庡競鍧愭爣鏁版嵁搴擄紝鍦扮悊浣嶇疆鍒嗙被鐜板湪瀹屽叏鏀寔绂荤嚎杩愯锛屾棤闇€浜掕仈缃戙€?
-- **閰嶇疆鏂囦欢**锛氱▼搴忎細鍦ㄦ墍鍦ㄧ洰褰曚笅鑷姩鐢熸垚 `config.json` 鍜?`history.json` 浠ヤ繚瀛樻偍鐨勫亸濂藉拰鍘嗗彶璁板綍銆?
+## 🛠️ 项目结构
 
-## 馃攧 鐗堟湰鏇存柊
+- `src/`：源代码
+  - `gui/app.py`：现代化的 PyQt6 界面逻辑、主题引擎与翻译系统。
+  - `sorter.py`：核心分类算法（日期/月份/城市分析）。
+  - `exif_utils.py`：照片 EXIF 元数据解析（时间、GPS）。
+  - `geocode.py`：地理编码服务，内置 337 个中国地级行政区坐标的离线查询逻辑。
+  - `models/`：预留 AI 识别接口（如人脸/物体识别）。
+- `readme-history/`：存放历史版本的 README 文件。
+- `assets/`：程序图标与内部资源。
+- `config.json`：用户配置持久化（主题色、语言、深色模式）。
+- `history.json`：处理历史数据。
 
-- **v1.1.0** (2026-02-20): 2026 骞村害澶х増鏈€?
-  - **澧炲己鏍煎紡鏀寔**锛氭敮鎸?WebP, GIF, BMP, JFIF 绛夋洿澶氬浘鐗囨牸寮忋€?
-  - **澧炲姞瑙嗛鍒嗙被**锛氭敮鎸?MP4, MOV, AVI, MKV 绛変富娴佽棰戝垎绫汇€?
-  - **濯掍綋鍒嗘嫞閫昏緫**锛氳嚜鍔ㄦ寜濯掍綋绫诲瀷锛堢収鐗?瑙嗛锛夊垎閫佷笉鍚岀殑椤剁骇鏂囦欢澶广€?
-  - **UI 浜や簰鏀硅繘**锛氫换鍔＄粨鏉熷悗鏀寔鍦ㄥ脊绐楀唴涓€閿墦寮€鏂囦欢澶癸紝缁熶竴浜嗘寜閽瑙夐鏍笺€?
-- **v1.0.8**: 閲嶆瀯鍦扮悊鍒嗙被閫昏緫銆備粠鑵捐鍦板浘 API 杩佺Щ鑷?*鍐呯疆鏈湴鍩庡競鏁版嵁搴?*鏂规锛屽疄鐜?100% 绂荤嚎杩愯锛屾樉钁楁彁鍗囬殣绉佹€т笌澶勭悊閫熷害銆?
+## 📝 注意事项
 
-## 璁稿彲璇?
+- **离线支持**：得益于内置的轻量级城市坐标数据库，地理位置分类现在完全支持离线运行，无需互联网。
+- **配置文件**：程序会在所在目录下自动生成 `config.json` 和 `history.json` 以保存您的偏好和历史记录。
+
+## 🔄 版本更新
+
+- **v1.1.0** (2026-02-20): 2026 年度大版本。
+  - **增强格式支持**：支持 WebP, GIF, BMP, JFIF 等更多图片格式。
+  - **增加视频分类**：支持 MP4, MOV, AVI, MKV 等主流视频分类。
+  - **媒体分拣逻辑**：自动按媒体类型（照片/视频）分送不同的顶级文件夹。
+  - **UI 交互改进**：任务结束后支持在弹窗内一键打开文件夹，统一了按钮视觉风格。
+- **v1.0.8**: 重构地理分类逻辑。从腾讯地图 API 迁移至**内置本地城市数据库**方案，实现 100% 离线运行，显著提升隐私性与处理速度。
+
+## 许可证
 MIT
 
 ---
@@ -72,7 +90,7 @@ MIT
 
 **C-SORTING** is a modern intelligent photo sorting tool developed based on PyQt6, featuring a minimalist design aimed at helping users quickly organize cluttered photo libraries.
 
-## 馃専 Core Features
+## 🌟 Core Features
 
 - **Minimalist UI**: Utilizes smooth PyQt6 animations, sidebar navigation, and rounded corner card layouts.
 - **Smart Sorting**:
@@ -88,8 +106,9 @@ MIT
 - **Lossless Organization**: Supports "Keep original files (Copy)" or "Move files" modes.
 - **High Performance**: Uses asynchronous multi-threaded processing, ensuring the interface remains responsive during bulk photo organization.
 
-## 馃殌 Quick Start
+## 🚀 Quick Start
 
+### Windows
 1. After cloning the project, create and activate a virtual environment in the root directory:
 ```powershell
 python -m venv .venv
@@ -99,12 +118,33 @@ python -m venv .venv
 ```powershell
 pip install -r requirements.txt
 ```
+3. Run the program:
+```powershell
+python src/main.py
+```
+
+### Linux (Arch Linux)
+It's recommended to use the built-in packaging solution for native menu icon support:
+```bash
+cd packaging/arch
+makepkg -si
+```
+
+### Linux (Debian / Ubuntu)
+You can download and install the pre-built `.deb` package (AMD64):
+```bash
+sudo apt install ./packaging/debian/c-sorting_1.1.0-1_amd64.deb
+```
+Or you can build your own package for other architectures (like ARM).
+
+### Linux (Any Distro / AppImage)
+When you push code with a `v*` tag to GitHub, the system will automatically package an **AppImage**. You can download it directly from the **Releases** page and run it immediately.
 3. Start the program:
 ```powershell
 python src/main.py
 ```
 
-## 馃洜锔?Project Structure
+## 🛠️ Project Structure
 
 - `src/`: Source Code
   - `gui/app.py`: Modern PyQt6 interface logic, theme engine, and translation system.
@@ -117,12 +157,12 @@ python src/main.py
 - `config.json`: User configuration persistence (Theme color, language, dark mode).
 - `history.json`: Processing history data.
 
-## 馃摑 Notes
+## 📝 Notes
 
 - **Offline Support**: Thanks to the built-in lightweight city database, location-based sorting now fully supports offline operation, with no internet required.
 - **Configuration Files**: The program automatically generates `config.json` and `history.json` in its directory to save your preferences and history.
 
-## 馃攧 Updates
+## 🔄 Updates
 
 - **v1.1.0** (2026-02-20): Major 2026 Release.
   - **Enhanced Format Support**: Supports WebP, GIF, BMP, JFIF, and more.
@@ -133,5 +173,4 @@ python src/main.py
 
 ## License
 MIT
-
 

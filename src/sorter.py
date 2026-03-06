@@ -1,3 +1,18 @@
+# Copyright (C) 2026 nighty
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 """
 照片扫描与排序核心逻辑。
 - 支持按时间（YYYY-MM-DD）或按城市分类
@@ -8,6 +23,7 @@ from typing import List, Dict, Optional, Tuple
 import shutil
 from .exif_utils import get_photo_metadata
 from .geocode import latlon_to_city
+from .models.recognition import Recognizer
 import os
 import time
 
@@ -19,6 +35,7 @@ class MediaItem:
         self.path = path
         self.media_type = media_type  # 'image' or 'video'
         self.meta = self._get_metadata()
+        self._ai_tag = None
 
     def _get_metadata(self) -> Dict[str, Optional[object]]:
         if self.media_type == 'image':
@@ -30,6 +47,13 @@ class MediaItem:
         else:
             # Video metadata fallback to file time
             return {"datetime": self._get_file_datetime(), "gps": None}
+
+    def ai_tag(self, recognizer: Optional[Recognizer], custom_labels: Optional[List[str]] = None) -> str:
+        if self.media_type != 'image' or not recognizer:
+            return "其他"
+        if not self._ai_tag:
+            self._ai_tag = recognizer.predict(str(self.path), custom_labels)
+        return self._ai_tag
 
     def _get_file_datetime(self) -> str:
         """Fallback to file creation time if EXIF is missing (OS dependent)."""
@@ -67,9 +91,10 @@ class MediaItem:
             return None
         return latlon_to_city(gps[0], gps[1])
 
-def scan_folder(folder: Path) -> List[MediaItem]:
+def scan_folder(folder: Path, recursive: bool = True) -> List[MediaItem]:
     items = []
-    for p in folder.rglob('*'):
+    generator = folder.rglob('*') if recursive else folder.glob('*')
+    for p in generator:
         if not p.is_file():
             continue
         suffix = p.suffix.lower()
@@ -98,6 +123,20 @@ def group_by_city(items: List[MediaItem]) -> Dict[str, List[MediaItem]]:
     for it in items:
         key = it.city() or 'unknown_city'
         groups.setdefault(key, []).append(it)
+    return groups
+
+def group_by_ai(items: List[MediaItem], recognizer: Recognizer, custom_labels: Optional[List[str]] = None, progress_callback=None) -> Dict[str, List[MediaItem]]:
+    groups = {}
+    total = len(items)
+    for idx, it in enumerate(items):
+        # 仅对图片进行 AI 识别
+        if it.media_type == 'image':
+            key = it.ai_tag(recognizer, custom_labels)
+        else:
+            key = "视频"
+        groups.setdefault(key, []).append(it)
+        if progress_callback:
+            progress_callback(int((idx + 1) / total * 100))
     return groups
 
 def move_grouped_items(groups: Dict[str, List[MediaItem]], target_base: Path, copy: bool = False) -> None:

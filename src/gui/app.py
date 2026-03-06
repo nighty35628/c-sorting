@@ -1,9 +1,25 @@
+﻿
+# Copyright (C) 2026 nighty
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
 import json
 import os
 import subprocess
 import base64
+import time
 from datetime import datetime
 from pathlib import Path
 from PyQt6.QtWidgets import (
@@ -19,7 +35,8 @@ from PyQt6.QtCore import (
     QParallelAnimationGroup
 )
 from PyQt6.QtGui import QPixmap, QIcon
-from ..sorter import scan_folder, group_by_date, group_by_month, group_by_city, move_grouped_items
+from ..sorter import scan_folder, group_by_date, group_by_month, group_by_city, group_by_ai, move_grouped_items
+from ..models.recognition import Recognizer
 
 TRANSLATIONS = {
     "zh-cn": {
@@ -27,16 +44,18 @@ TRANSLATIONS = {
         "nav_dashboard": "🏠 整理照片",
         "nav_history": "🕒 处理历史",
         "nav_settings": "⚙️ 偏好设置",
+        "nav_guide": "📖 使用说明",
         "dash_header": "欢迎使用照片智能整理",
         "dash_desc": "简单几步，让您的照片库井井有条。",
         "label_source": "选择源文件夹",
         "btn_browse": "选取...",
         "group_mode": "分类方式",
-        "mode_date": "按日期 (推荐)",
+        "mode_date": "按日期",
         "mode_month": "按月份",
         "mode_city": "按地理位置",
         "group_extra": "操作选项",
-        "copy_mode": "保留原文件 (副本)",
+        "copy_mode": "保留原文件",
+        "recursive_mode": "读取子文件夹",
         "btn_start": "立即开始整理",
         "status_ready": "准备就绪",
         "status_done": "处理完成！成功整理了 {} 张照片。",
@@ -53,6 +72,7 @@ TRANSLATIONS = {
         "sett_color": "选择主题色：",
         "sett_lang": "语言设置 / Language",
         "btn_open": "📂 打开文件夹",
+        "btn_clear_hist": "🗑️ 清空记录",
         "msg_success": "完成",
         "msg_warning": "提示",
         "msg_error": "错误",
@@ -79,12 +99,29 @@ TRANSLATIONS = {
         "opt_date": "按日期",
         "opt_month": "按月份",
         "opt_city": "按地理位置",
+        "mode_ai": "AI 智能分类",
+        "ai_label_tip": "自定义标签 (逗号分隔):",
+        "ai_loading": "能工智人分类中...",
+        "ai_predefined": "预设标签:",
+        "tag_catdog": "猫狗",
+        "tag_parrot": "鹦鹉",
+        "tag_selfie": "自拍",
+        "tag_seaside": "海边",
+        "tag_group": "合照",
+        "tag_couple": "双人",
+        "tag_food": "食物",
+        "tag_doc": "文档",
+        "tag_night": "夜景",
+        "tag_firework": "烟花",
+        "tag_plant": "绿植",
+        "tag_flower": "花",
     },
     "en": {
         "app_name": "C-SORTING",
         "nav_dashboard": "🏠 Dashboard",
         "nav_history": "🕒 History",
         "nav_settings": "⚙️ Settings",
+        "nav_guide": "📖 User Guide",
         "dash_header": "Smart Photo Sorter",
         "dash_desc": "Organize your photo library in a few simple steps.",
         "label_source": "Select Source Folder",
@@ -94,7 +131,8 @@ TRANSLATIONS = {
         "mode_month": "By Month",
         "mode_city": "By Location",
         "group_extra": "Options",
-        "copy_mode": "Keep Originals (Copy)",
+        "copy_mode": "Keep Originals",
+        "recursive_mode": "Read Subfolders",
         "btn_start": "Start Sorting Now",
         "status_ready": "Ready",
         "status_done": "Done! Organized {} photos successfully.",
@@ -111,6 +149,7 @@ TRANSLATIONS = {
         "sett_color": "Pick Theme Color:",
         "sett_lang": "Language Settings",
         "btn_open": "📂 Open Folder",
+        "btn_clear_hist": "🗑️ Clear History",
         "msg_success": "Success",
         "msg_warning": "Warning",
         "msg_error": "Error",
@@ -137,6 +176,22 @@ TRANSLATIONS = {
         "opt_date": "By Date",
         "opt_month": "By Month",
         "opt_city": "By Location",
+        "mode_ai": "AI Smart Sort",
+        "ai_label_tip": "Custom Labels (comma split):",
+        "ai_loading": "Al Sorting...",
+        "ai_predefined": "Predefined:",
+        "tag_catdog": "Cats & Dogs",
+        "tag_parrot": "Parrot",
+        "tag_selfie": "Selfie",
+        "tag_seaside": "Seaside",
+        "tag_group": "Group",
+        "tag_couple": "Couple",
+        "tag_food": "Food",
+        "tag_doc": "Document",
+        "tag_night": "Night",
+        "tag_firework": "Firework",
+        "tag_plant": "Plant",
+        "tag_flower": "Flower",
     }
 }
 
@@ -300,15 +355,20 @@ class ModernMessageBox(QDialog):
 
 class SortWorker(QThread):
     progress = pyqtSignal(str)
-    finished = pyqtSignal(dict)  # Changed to dict to return more info
+    progress_val = pyqtSignal(int)
+    total_count_ready = pyqtSignal(int) # New signal to report total count
+    finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, folder, mode, copy_mode, lang="zh-cn"):
+    def __init__(self, folder, mode, copy_mode, recursive=True, lang="zh-cn", model_dir=None, custom_labels=None):
         super().__init__()
         self.folder = Path(folder)
         self.mode = mode
         self.copy_mode = copy_mode
+        self.recursive = recursive
         self.lang = lang
+        self.model_dir = model_dir
+        self.custom_labels = custom_labels
 
     def t(self, key):
         return TRANSLATIONS.get(self.lang, TRANSLATIONS["zh-cn"]).get(key, key)
@@ -316,8 +376,9 @@ class SortWorker(QThread):
     def run(self):
         try:
             self.progress.emit(self.t("proc_scanning"))
-            items = scan_folder(self.folder)
+            items = scan_folder(self.folder, recursive=self.recursive)
             count = len(items)
+            self.total_count_ready.emit(count) # Emit total count
             if not items:
                 self.finished.emit({"success": False, "msg": self.t("proc_no_files")})
                 return
@@ -342,10 +403,17 @@ class SortWorker(QThread):
                 p_groups = group_by_month(photos)
                 v_groups = group_by_month(videos)
                 p_target, v_target = get_target_paths("month")
-            else: # city
+            elif self.mode == 'city':
                 p_groups = group_by_city(photos)
                 v_groups = group_by_city(videos)
                 p_target, v_target = get_target_paths("city")
+            elif self.mode == 'ai':
+                self.progress.emit(self.t("ai_loading"))
+                recognizer = Recognizer(self.model_dir)
+                recognizer.load_model()
+                p_groups = group_by_ai(photos, recognizer, self.custom_labels, progress_callback=lambda v: self.progress_val.emit(v))
+                v_groups = {"视频": videos} if videos else {}
+                p_target, v_target = get_target_paths("ai")
             
             action_key = "proc_copying" if self.copy_mode else "proc_moving"
             self.progress.emit(self.t(action_key))
@@ -407,6 +475,9 @@ class App(QWidget):
             ("color_pink", "#ff2d8c"), ("color_yellow", "#ffcc00"), ("color_cyan", "#5ac8fa"), ("color_indigo", "#5856d6"), ("color_gray", "#8e8e93")
         ]
         
+        # Resource Path for QSS
+        self.svg_check = (self.res_dir / "assets" / "check.svg").as_posix()
+        
         self.history_file = self.base_dir / "history.json"
         self.history_data = self.load_history()
         
@@ -424,8 +495,8 @@ class App(QWidget):
         elif app_icon_path.exists():
             self.setWindowIcon(QIcon(str(app_icon_path)))
             
-        self.apply_theme()
         self.setup_ui()
+        self.apply_theme()
 
     def resizeEvent(self, event):
         """Handle responsive sidebar and main content layout adjustment."""
@@ -487,6 +558,43 @@ class App(QWidget):
 
     def apply_theme(self):
         self.setStyleSheet(self.get_stylesheet())
+        if hasattr(self, 'refresh_guide_page'):
+            self.refresh_guide_page()
+        
+        # Update App Title color separately
+        if hasattr(self, 'app_title_label'):
+            self.app_title_label.setStyleSheet(f"background: transparent; font-size: 20px; font-weight: bold; color: {self.current_theme_color}; margin-bottom: 2px;")
+
+        # Update preset tags checkboxes with current theme color
+        if hasattr(self, 'check_boxes'):
+            for cb in self.check_boxes:
+                cb.setStyleSheet(f"""
+                    QCheckBox {{
+                        font-size: 11px;
+                        color: #8e8e93;
+                        spacing: 4px;
+                    }}
+                    QCheckBox:checked {{
+                        color: {self.current_theme_color};
+                        font-weight: bold;
+                    }}
+                    QCheckBox::indicator {{
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 4px;
+                        border: 1.5px solid #d1d1d6;
+                        background-color: transparent;
+                    }}
+                    QCheckBox::indicator:hover {{
+                        border-color: {self.current_theme_color};
+                    }}
+                    QCheckBox::indicator:checked {{
+                        background-color: {self.current_theme_color};
+                        border-color: {self.current_theme_color};
+                        image: url("{self.svg_check}");
+                    }}
+                """)
+
         if hasattr(self, 'hist_list_layout'):
             self.refresh_history_ui()
 
@@ -507,6 +615,66 @@ class App(QWidget):
                 border: 2px solid {hex_code};
             }}
             """
+
+        guide_card_style = f"""
+        #GuideCard {{
+            background-color: {input_bg};
+            border: 1px solid {border_color};
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }}
+        #GuideCard QLabel {{
+            background-color: transparent;
+            border: none;
+        }}
+        #GuideCardTitle {{
+            font-size: 18px;
+            font-weight: bold;
+            color: {primary};
+            margin-bottom: 8px;
+        }}
+        #GuideCardContent {{
+            font-size: 14px;
+            color: {text_color};
+            line-height: 1.5;
+        }}
+        #GuideCardSection {{
+            font-weight: bold;
+            color: {text_color};
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }}
+        #GuideBadge {{
+            background-color: {primary}22;
+            color: {primary};
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-weight: bold;
+            font-size: 12px;
+        }}
+        """
+
+        # Sidebar Buttons Base
+        # We ensure consistent alignment by always using text-align: left when expanded,
+        # but with sufficient padding to feel centered if preferred.
+        # If the user wants "ALWAYS CENTERED", we will set text-align: center for both.
+        # The reported bug happens because of property toggles affecting layout.
+        
+        # FIXED: Always use text-align: center to maintain consistency as requested.
+        sidebar_button_style = f"""
+        #Sidebar QPushButton {{
+            background-color: transparent;
+            border: none;
+            border-radius: 12px;
+            padding: 12px;
+            font-weight: 500;
+            margin: 4px 10px;
+            color: {text_color};
+            font-size: 16px;
+            text-align: center;
+        }}
+        """
 
         return f"""
         QWidget {{
@@ -532,23 +700,12 @@ class App(QWidget):
         #HistoryItem QLabel {{
             background-color: transparent;
         }}
-        #Sidebar QPushButton {{
-            background-color: transparent;
-            border: none;
-            border-radius: 12px;
-            padding: 12px;
-            font-weight: 500;
-            margin: 4px 10px;
-            color: {text_color};
-            font-size: 16px;
-        }}
+        {sidebar_button_style}
         #Sidebar[collapsed="true"] QPushButton {{
-            text-align: center;
             padding: 12px 0;
             margin: 4px 5px;
         }}
         #Sidebar[collapsed="false"] QPushButton {{
-            text-align: left;
             padding: 12px 15px;
             margin: 4px 10px;
         }}
@@ -640,7 +797,6 @@ class App(QWidget):
             background-color: {primary};
             border: 2px solid {primary};
             border-radius: 10px;
-            image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAA7EAAAOxAGVKw4bAAABCklEQVRYhe2UO27CQBQA3zMSDR0lNX24ADkAmBvAGbhAGiRuADUdOUIipU8OkPS0UFJBQaKhYBEPK4mNP0uzI7mwvX4z0lorEggE7oxWORxQEemJCCLyqqpU6fstYMKFnm/5gGv6PuVtYGvkL0DkS94Avox8BTR9yRV4NvId8OBF7gLGiX0f5h0UAbG7Mu0d8Ah8G/ksl9wNi82gRVoE0AI25pt3oF5WwL8RQB34MGvXQCu33A2NnDQ1ApibNQegW0h+SwQwSrwflyLPEgF0gL15vuR09pfLHxFLTgfMmU+gUbo8JeLMFmhXJs8QEVcuT0S82a0oOvPmnwaoiciTu52q6k/RiEAgcFeOrMjv32JtTssAAAAASUVORK5CYII=);
         }}
         QRadioButton::indicator:hover, QCheckBox::indicator:hover {{
             border: 2px solid {primary};
@@ -705,8 +861,9 @@ class App(QWidget):
         self.btn_dashboard.setProperty("active", "true")
         self.btn_history = QPushButton()
         self.btn_settings = QPushButton()
+        self.btn_guide = QPushButton()
         
-        self.sidebar_buttons = [self.btn_dashboard, self.btn_history, self.btn_settings]
+        self.sidebar_buttons = [self.btn_dashboard, self.btn_history, self.btn_settings, self.btn_guide]
         self.update_sidebar_text()
         
         for btn in self.sidebar_buttons:
@@ -742,7 +899,7 @@ class App(QWidget):
         self.app_title_label.setVisible(False)
         sidebar_layout.addWidget(self.app_title_label)
 
-        self.version_label = QLabel("v1.1.0")
+        self.version_label = QLabel("v1.2.0")
         self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.version_label.setStyleSheet("background: transparent; color: #86868b; font-size: 11px; margin-bottom: 10px;")
         self.version_label.setVisible(False)
@@ -792,24 +949,148 @@ class App(QWidget):
         options_layout.setSpacing(15)
         
         self.mode_group_box = QGroupBox(self.t("group_mode"))
-        self.mode_group_box.setMinimumWidth(180) # Prevent text squishing
+        self.mode_group_box.setMinimumWidth(180) # Initial width set to 180 explicitly
+        self.mode_group_box.setFixedHeight(230) 
         mode_v = QVBoxLayout()
+        mode_v.setContentsMargins(15, 12, 15, 15) # Standardized margins
+        mode_v.setSpacing(10)
         self.mode_group = QButtonGroup(self)
         self.rb_date = QRadioButton(self.t("mode_date"))
         self.rb_date.setChecked(True)
         self.rb_month = QRadioButton(self.t("mode_month"))
         self.rb_city = QRadioButton(self.t("mode_city"))
-        for rb in [self.rb_date, self.rb_month, self.rb_city]:
+        self.rb_ai = QRadioButton(self.t("mode_ai"))
+        
+        # AI labels input area (Hidden, only one copy in extra_group_box)
+        for rb in [self.rb_date, self.rb_month, self.rb_city, self.rb_ai]:
             self.mode_group.addButton(rb)
             mode_v.addWidget(rb)
         self.mode_group_box.setLayout(mode_v)
         
         self.extra_group_box = QGroupBox(self.t("group_extra"))
-        self.extra_group_box.setMinimumWidth(180)
+        self.extra_group_box.setMinimumWidth(180) 
+        self.extra_group_box.setFixedHeight(230) # Match height with mode_group_box
         extra_v = QVBoxLayout()
+        extra_v.setContentsMargins(15, 12, 15, 15) # Match left side exactly
+        extra_v.setSpacing(10)
+        
+        # Options row: Copy mode & Recursive mode
+        options_row = QHBoxLayout()
+        options_row.setContentsMargins(0, 0, 0, 0)
+        options_row.setSpacing(10)
+        
         self.cb_copy = QCheckBox(self.t("copy_mode"))
         self.cb_copy.setChecked(True)
-        extra_v.addWidget(self.cb_copy)
+        
+        self.cb_recursive = QCheckBox(self.t("recursive_mode"))
+        self.cb_recursive.setChecked(True)
+        
+        options_row.addWidget(self.cb_copy)
+        options_row.addWidget(self.cb_recursive)
+        options_row.addStretch() 
+        extra_v.addLayout(options_row)
+        
+        # AI Options moved here for balance
+        self.ai_options_widget = QWidget()
+        self.ai_options_widget.setMaximumHeight(0) # Start with 0 height
+        self.ai_options_widget.setContentsMargins(0, 0, 0, 0)
+        ai_options_layout = QVBoxLayout(self.ai_options_widget)
+        ai_options_layout.setContentsMargins(0, 5, 0, 0)
+        ai_options_layout.setSpacing(8)
+
+        self.labels_container = QWidget()
+        labels_grid = QGridLayout(self.labels_container)
+        labels_grid.setContentsMargins(0, 0, 0, 0)
+        labels_grid.setSpacing(4)
+        
+        self.preset_tags = [
+            ("tag_parrot", "鹦鹉"), ("tag_catdog", "猫狗"), ("tag_selfie", "自拍"), 
+            ("tag_couple", "双人"), ("tag_group", "合照"), ("tag_food", "食物"), 
+            ("tag_seaside", "海边"), ("tag_night", "夜景"), ("tag_firework", "烟花"), 
+            ("tag_plant", "绿植"), ("tag_doc", "文档"), ("tag_flower", "花")
+        ]
+        self.check_boxes = []
+        for i, (tag_key, tag_zh) in enumerate(self.preset_tags):
+            cb = QCheckBox(self.t(tag_key))
+            cb.setProperty("tag_key", tag_key)
+            cb.setChecked(False) # Default UNCHECKED
+            cb.setCursor(Qt.CursorShape.PointingHandCursor)
+            cb.setStyleSheet(f"""
+                QCheckBox {{
+                    font-size: 11px;
+                    color: #8e8e93;
+                    spacing: 4px;
+                }}
+                QCheckBox:checked {{
+                    color: {self.current_theme_color};
+                    font-weight: bold;
+                }}
+                QCheckBox::indicator {{
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 4px;
+                    border: 1.5px solid #d1d1d6;
+                    background-color: transparent;
+                }}
+                QCheckBox::indicator:hover {{
+                    border-color: {self.current_theme_color};
+                }}
+                QCheckBox::indicator:checked {{
+                    background-color: {self.current_theme_color};
+                    border-color: {self.current_theme_color};
+                    image: url("{self.svg_check}");
+                }}
+            """)
+            self.check_boxes.append(cb)
+            # 4 columns for better balance (3 rows * 4 columns = 12 tags)
+            labels_grid.addWidget(cb, i // 4, i % 4)
+        ai_options_layout.addWidget(self.labels_container)
+
+        self.ai_label_input = QLineEdit()
+        self.ai_label_input.setPlaceholderText(self.t("ai_label_tip"))
+        self.ai_label_input.setFixedHeight(32) # Increased height to match other options
+        self.ai_label_input.setStyleSheet("font-size: 11px; padding: 0 8px;")
+        ai_options_layout.addWidget(self.ai_label_input)
+        
+        # Animations
+        self.ai_height_anim = QPropertyAnimation(self.ai_options_widget, b"maximumHeight")
+        self.mode_width_anim = QPropertyAnimation(self.mode_group_box, b"minimumWidth")
+        self.extra_width_anim = QPropertyAnimation(self.extra_group_box, b"minimumWidth")
+        
+        self.ai_height_anim.setDuration(400)
+        self.mode_width_anim.setDuration(400)
+        self.extra_width_anim.setDuration(400)
+        
+        curve = QEasingCurve.Type.OutQuart # Smoother "fast-to-slow" easing
+        self.ai_height_anim.setEasingCurve(curve)
+        self.mode_width_anim.setEasingCurve(curve)
+        self.extra_width_anim.setEasingCurve(curve)
+
+        def toggle_ai_layout(checked):
+            self.mode_width_anim.stop()
+            self.extra_width_anim.stop()
+            self.ai_height_anim.stop()
+            
+            if checked:
+                # Calculate required height
+                target_height = 135 
+                self.mode_width_anim.setEndValue(130)
+                self.extra_width_anim.setEndValue(280)
+                self.ai_height_anim.setStartValue(self.ai_options_widget.height())
+                self.ai_height_anim.setEndValue(target_height)
+            else:
+                self.mode_width_anim.setEndValue(180)
+                self.extra_width_anim.setEndValue(180)
+                self.ai_height_anim.setStartValue(self.ai_options_widget.height())
+                self.ai_height_anim.setEndValue(0)
+                
+            self.mode_width_anim.start()
+            self.extra_width_anim.start()
+            self.ai_height_anim.start()
+
+        self.rb_ai.toggled.connect(toggle_ai_layout)
+        
+        extra_v.addWidget(self.ai_options_widget)
         extra_v.addStretch()
         self.extra_group_box.setLayout(extra_v)
         
@@ -825,11 +1106,41 @@ class App(QWidget):
         self.start_btn.clicked.connect(self.start_sorting)
         dash_layout.addWidget(self.start_btn)
 
+        # Progress Area
+        self.progress_container = QWidget()
+        progress_layout = QVBoxLayout(self.progress_container)
+        progress_layout.setContentsMargins(0, 5, 0, 5)
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 5000) # 扩大到 5000，实现超高精度步进，肉眼无法察觉任何跳变
+        self.progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setFixedHeight(6)
+
         # Status
         self.status_label = QLabel(self.t("status_ready"))
         self.status_label.setObjectName("StatusLabel")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        dash_layout.addWidget(self.status_label)
+        
+        progress_layout.addWidget(self.progress_bar)
+        progress_layout.addWidget(self.status_label)
+        dash_layout.addWidget(self.progress_container)
+
+        # Smooth Progress Animation
+        self.progress_anim = QPropertyAnimation(self.progress_bar, b"value")
+        self.progress_anim.setDuration(800) # Longer duration for perceived continuity
+        self.progress_anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        def update_smooth_progress(val):
+            if val == 0:
+                self.progress_bar.setValue(0)
+                return
+            self.progress_anim.stop()
+            self.progress_anim.setStartValue(self.progress_bar.value())
+            self.progress_anim.setEndValue(val)
+            self.progress_anim.start()
+
         dash_layout.addStretch()
         
         self.stack.addWidget(dash_page)
@@ -841,7 +1152,19 @@ class App(QWidget):
         
         self.hist_header_label = QLabel(self.t("hist_header"))
         self.hist_header_label.setObjectName("Header")
-        self.hist_v.addWidget(self.hist_header_label)
+        
+        hist_title_layout = QHBoxLayout()
+        hist_title_layout.addWidget(self.hist_header_label)
+        hist_title_layout.addStretch()
+        
+        self.btn_clear_hist = QPushButton(self.t("btn_clear_hist"))
+        self.btn_clear_hist.setObjectName("SecondaryButton") # Use standard secondary style
+        self.btn_clear_hist.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_clear_hist.setFixedHeight(36)
+        self.btn_clear_hist.clicked.connect(self.clear_history)
+        hist_title_layout.addWidget(self.btn_clear_hist)
+        
+        self.hist_v.addLayout(hist_title_layout)
         
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -940,6 +1263,13 @@ class App(QWidget):
         sett_v.addStretch()
         self.stack.addWidget(settings_page)
 
+        # --- Page 3: Guide ---
+        self.guide_page = QWidget()
+        self.guide_v = QVBoxLayout(self.guide_page)
+        self.guide_v.setContentsMargins(40, 30, 10, 30)
+        self.refresh_guide_page()
+        self.stack.addWidget(self.guide_page)
+
         hbox.addWidget(self.stack)
 
         # Animations
@@ -947,13 +1277,13 @@ class App(QWidget):
         self.status_label.setGraphicsEffect(self.opacity_effect)
         
         self.status_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.status_anim.setDuration(800)
+        self.status_anim.setDuration(800) # 800ms 渐入
         self.status_anim.setStartValue(0.3)
         self.status_anim.setEndValue(1.0)
         self.status_anim.setEasingCurve(QEasingCurve.Type.OutQuad)
         
         self.pulse_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.pulse_anim.setDuration(1000)
+        self.pulse_anim.setDuration(2000) # 2000ms 呼吸周期
         self.pulse_anim.setStartValue(1.0)
         self.pulse_anim.setEndValue(0.3)
         self.pulse_anim.setLoopCount(-1)
@@ -1052,8 +1382,205 @@ class App(QWidget):
                 QWidget().setLayout(old_lang_layout)
                 self.lang_container.setLayout(new_lang_layout)
 
+    def refresh_guide_page(self):
+        """Rebuilds the guide page content to adapt to theme or language changes."""
+        # Clear existing layout
+        while self.guide_v.count():
+            item = self.guide_v.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        # Re-fetch theme colors
+        primary = self.current_theme_color
+        text_color = "#1d1d1f" if not self.is_dark_mode else "#f5f5f7"
+        border_color = "#d2d2d7" if not self.is_dark_mode else "#38383a"
+        input_bg = "#f5f5f7" if not self.is_dark_mode else "#2c2c2e"
+
+        # Header
+        guide_header = QLabel(self.t("nav_guide"))
+        guide_header.setObjectName("Header")
+        self.guide_v.addWidget(guide_header)
+
+        # Scroll Area
+        scrollbar_bg = "transparent"
+        scrollbar_handle = "#c0c0c0" if not self.is_dark_mode else "#555555"
+        scrollbar_handle_hover = "#a0a0a0" if not self.is_dark_mode else "#777777"
+        guide_scroll = QScrollArea()
+        guide_scroll.setWidgetResizable(True)
+        guide_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        guide_scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background: transparent;
+                border: none;
+            }}
+            QScrollBar:vertical {{
+                background: {scrollbar_bg};
+                width: 6px;
+                margin: 0px;
+                border: none;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {scrollbar_handle};
+                min-height: 30px;
+                border-radius: 3px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {scrollbar_handle_hover};
+            }}
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {{
+                height: 0px;
+            }}
+            QScrollBar::add-page:vertical,
+            QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
+        """)
+        
+        guide_scroll_content = QWidget()
+        guide_scroll_content.setStyleSheet("background: transparent;")
+        guide_scroll_v = QVBoxLayout(guide_scroll_content)
+        guide_scroll_v.setContentsMargins(0, 20, 16, 20)
+        guide_scroll_v.setSpacing(20)
+
+        def create_guide_card(title, content):
+            card = QFrame()
+            card.setObjectName("GuideCard")
+            card.setStyleSheet(f"""
+                #GuideCard {{
+                    background-color: {input_bg};
+                    border: 1px solid {border_color};
+                    border-radius: 16px;
+                }}
+            """)
+            card_v = QVBoxLayout(card)
+            card_v.setContentsMargins(15, 12, 15, 12)
+            card_v.setSpacing(6)
+            
+            title_label = QLabel(title)
+            title_label.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {primary}; background: transparent; border: none;")
+            card_v.addWidget(title_label)
+            
+            content_label = QLabel(content)
+            content_label.setWordWrap(True)
+            content_label.setOpenExternalLinks(True)
+            content_label.setStyleSheet(f"font-size: 14px; color: {text_color}; line-height: 1.5; background: transparent; border: none;")
+            card_v.addWidget(content_label)
+            return card
+
+        # Content Sections
+        if self.lang == "zh-cn":
+            guide_scroll_v.addWidget(create_guide_card("关于本软件", 
+                "C-SORTING 是一款基于 PyQt6 开发的现代化智能照片分类工具，旨在帮助用户快速整理杂乱的照片库。"
+                "无论是相机导出的海量照片，还是日常积累的随手拍，本工具都能通过多种分类方式让您的媒体库变得井井有条。"))
+
+            modes_content = (
+                f"<p><b>📅 按日期分类</b><br>支持精确到天（YYYY-MM-DD）或按月份（YYYY-MM）归档，让时间线一目了然。</p>"
+                f"<p><b>🌍 按地点分类</b><br>基于内置离线数据库，可精确识别到<b>县</b>或<b>县级市</b>级别（覆盖 337 个地级行政区）。所有地理信息解析均在本地完成。</p>"
+                f"<p><b>🤖 AI 智能分类</b><br>"
+                f"• <b>分类逻辑</b>：采用非监督思想分类，严格按你指定的标签进行归类，不会创建未选中的其他类别。<br>"
+                f"• <b>模型支持</b>：本功能基于开源模型 <a href='https://github.com/OFA-Sys/Chinese-CLIP' style='color:{primary};'>Chinese CLIP</a> 实现（由 OFA-Sys 团队开发），遵循 <b>Apache License 2.0</b> 开源协议。<br>"
+                f"• <b>重要提示</b>：若只想筛选出某类特定图片，请务必同时添加一个自定义的“其他”类别，否则所有图片将被归入你选择的单一标签中。<br>"
+                f"• <b>示例说明</b>：<br>"
+                f"&nbsp;&nbsp;- 如果只选择“花”，则所有照片都会被归到“花”中。<br>"
+                f"&nbsp;&nbsp;- 如果选择“花”和“其他”，则花的照片归“花”，不是花的照片归“其他”。<br>"
+                f"&nbsp;&nbsp;- 如果选择“花”和“鹦鹉”，则花的照片归“花”，不是花的照片归“鹦鹉”。</p>"
+            )
+            guide_scroll_v.addWidget(create_guide_card("分类方式", modes_content))
+
+            tips_content = (
+                f"<b>分类组合技巧</b><br>你可以灵活组合不同的分类方式，实现更精细的照片管理：<br>"
+                f"• <b>地理 + 日期</b>：先按地点分类，再在每个地点文件夹内按日期归档，就能看到每个地方不同日子拍摄的照片。<br>"
+                f"• <b>地理 + AI</b>：先按地点分类，再对特定地点的照片进行 AI 语义分类（如“猫”“狗”“风景”），轻松找到旅途中拍下的精彩瞬间。<br>"
+                f"• <b>日期 + AI</b>：先按年月归档，再对某个月份的照片进行 AI 分类，回顾当月拍过的花鸟鱼虫。<br><br>"
+                f"<b>AI 分类的创意玩法</b><br>你可以充分发挥创意，例如给全是人像的照片使用“猫”和“狗”的标签进行分类，就可以知道谁是小猫，谁是小狗了。"
+            )
+            guide_scroll_v.addWidget(create_guide_card("使用小技巧", tips_content))
+
+            edition_content = (
+                f"本软件体积较大的主要原因是内置了本地 AI 模型（Chinese CLIP），以实现完全本地化的智能分类功能。如果您不需要 AI 相关功能，可以选择下载轻量版 <b>C-SORTING Light</b>。<br><br>"
+                f"轻量版将移除 AI 模型及相关依赖，保留基础的日期分类、地点分类等核心功能，体积更小、启动更快。Light 版本将与主版本一同发布在 GitHub Releases 页面，项目地址为：<br><br>"
+                f"<a href='https://github.com/nighty35628/c-sorting-light' style='color:{primary};'>获取 c-sorting-lite</a>"
+            )
+            guide_scroll_v.addWidget(create_guide_card("关于软件体积", edition_content))
+
+            guide_scroll_v.addWidget(create_guide_card("隐私说明", 
+                "本软件采用完全本地化设计，所有分类处理均在您的设备上完成，<b>无需联网</b>，确保您的照片和隐私数据不会外传。"))
+
+            icons_content = (
+                f"本软件图标来源于模组 <b>Touhou Little Maid</b> 中的道具“文文的相机”。<br><br>"
+                f"• <b>原作者</b>：TartaricAcid、Snownee 及美术团队<br>"
+                f"• <b>许可证</b>：<a href='https://creativecommons.org/licenses/by-nc-sa/4.0/' style='color:{primary};'>CC BY-NC-SA 4.0</a><br>"
+                f"• <b>模组发布页</b>：<a href='https://modrinth.com/mod/touhou-little-maid' style='color:{primary};'>Touhou Little Maid</a>"
+            )
+            guide_scroll_v.addWidget(create_guide_card("软件图标声明", icons_content))
+
+            author_content = (
+                f"• <b>项目地址</b>：<a href='https://github.com/nighty35628/c-sorting' style='color:{primary};'>GitHub Repository</a><br>"
+                f"• <b>作者博客</b>：<a href='https://blog.nightytech.com' style='color:{primary};'>nightytech.com</a><br>"
+                f"• <b>开源协议</b>：本项目遵循 <b>GNU Affero General Public License v3.0</b> 开源协议。"
+            )
+            guide_scroll_v.addWidget(create_guide_card("作者声明", author_content))
+        else:
+            guide_scroll_v.addWidget(create_guide_card("About", 
+                "C-SORTING is a modern AI-powered photo organization tool built with PyQt6, designed to help users quickly organize cluttered photo libraries."
+                "Whether it's a massive export from a camera or daily casual shots, this tool keeps your media library tidy through various sorting methods."))
+
+            modes_content = (
+                f"<p><b>📅 Sort by Date</b><br>Supports archiving by day (YYYY-MM-DD) or month (YYYY-MM), making your timeline clear at a glance.</p>"
+                f"<p><b>🌍 Sort by Location</b><br>Based on a built-in offline database, it can identify down to the <b>county</b> level (covering 337 prefecture-level cities). All geolocation parsing is done locally.</p>"
+                f"<p><b>🤖 AI Smart Sort</b><br>"
+                f"• <b>Logic</b>: Uses an unsupervised classification approach, strictly categorizing based on labels you specify without creating unwanted categories.<br>"
+                f"• <b>Model</b>: Powered by the open-source <a href='https://github.com/OFA-Sys/Chinese-CLIP' style='color:{primary};'>Chinese CLIP</a> model (developed by OFA-Sys), following <b>Apache License 2.0</b>.<br>"
+                f"• <b>Important</b>: If you only want to filter a specific category, be sure to add a custom \"Other\" label, otherwise all photos will be grouped into the single selected label.<br>"
+                f"• <b>Example</b>:<br>"
+                f"&nbsp;&nbsp;- Select only \"Flower\": all photos go to \"Flower\".<br>"
+                f"&nbsp;&nbsp;- Select \"Flower\" and \"Other\": flowers go to \"Flower\", others go to \"Other\".<br>"
+                f"&nbsp;&nbsp;- Select \"Flower\" and \"Parrot\": flowers go to \"Flower\", everything else goes to \"Parrot\".</p>"
+            )
+            guide_scroll_v.addWidget(create_guide_card("Sorting Modes", modes_content))
+
+            tips_content = (
+                f"<b>Pro Tips</b><br>Combine different sorting methods for finer photo management:<br>"
+                f"• <b>Location + Date</b>: Sort by location first, then by date within each folder to see your journey unfold.<br>"
+                f"• <b>Location + AI</b>: Sort by location, then use AI for semantic classification (e.g., \"Cat\", \"Dog\", \"Scenery\") to find specific trip highlights.<br>"
+                f"• <b>Date + AI</b>: Archive by month, then apply AI to find specific subjects like flowers or birds from that period.<br><br>"
+                f"<b>Creative AI Usage</b><br>Be creative! For example, label human portraits with \"Cat\" and \"Dog\" to find out who's the kitten or puppy in the group."
+            )
+            guide_scroll_v.addWidget(create_guide_card("Usage Tips", tips_content))
+
+            edition_content = (
+                f"The large file size is mainly due to the built-in local AI model (Chinese CLIP). If you don't need AI features, you can download the lightweight <b>C-SORTING Light</b>.<br><br>"
+                f"The Light version removes AI models and dependencies, keeping core features like Date and Location sorting. It is smaller and faster, available on GitHub Releases:<br><br>"
+                f"<a href='https://github.com/nighty35628/c-sorting-light' style='color:{primary};'>Get C-SORTING Light</a>"
+            )
+            guide_scroll_v.addWidget(create_guide_card("Software Size", edition_content))
+
+            guide_scroll_v.addWidget(create_guide_card("Privacy", 
+                "Designed with a local-first approach. All processing happens on your device <b>offline</b>, ensuring your photos and privacy never leave your computer."))
+
+            icons_content = (
+                f"The software icon is from the \"Aya's Camera\" item in the <b>Touhou Little Maid</b> mod.<br><br>"
+                f"• <b>Original Authors</b>: TartaricAcid, Snownee & Art Team<br>"
+                f"• <b>License</b>: <a href='https://creativecommons.org/licenses/by-nc-sa/4.0/' style='color:{primary};'>CC BY-NC-SA 4.0</a><br>"
+                f"• <b>Mod Page</b>: <a href='https://modrinth.com/mod/touhou-little-maid' style='color:{primary};'>Touhou Little Maid</a>"
+            )
+            guide_scroll_v.addWidget(create_guide_card("Icon Credits", icons_content))
+
+            author_content = (
+                f"• <b>Repository</b>: <a href='https://github.com/nighty35628/c-sorting' style='color:{primary};'>GitHub Repository</a><br>"
+                f"• <b>Author's Blog</b>: <a href='https://blog.nightytech.com' style='color:{primary};'>nightytech.com</a><br>"
+                f"• <b>License</b>: Licensed under <b>GNU Affero General Public License v3.0</b>."
+            )
+            guide_scroll_v.addWidget(create_guide_card("Author Info", author_content))
+
+        guide_scroll_v.addStretch()
+        guide_scroll.setWidget(guide_scroll_content)
+        self.guide_v.addWidget(guide_scroll)
+
     def update_sidebar_text(self):
-        keys = ["nav_dashboard", "nav_history", "nav_settings"]
+        keys = ["nav_dashboard", "nav_history", "nav_settings", "nav_guide"]
         for i, btn in enumerate(self.sidebar_buttons):
             full_text = self.t(keys[i])
             if not self.sidebar_expanded:
@@ -1083,6 +1610,8 @@ class App(QWidget):
             self.stack.setCurrentIndex(1)
         elif btn == self.btn_settings:
             self.stack.setCurrentIndex(2)
+        elif btn == self.btn_guide:
+            self.stack.setCurrentIndex(3)
 
     def change_language(self, id):
         new_lang = "zh-cn" if id == 0 else "en"
@@ -1097,6 +1626,9 @@ class App(QWidget):
         # Sidebar
         self.update_sidebar_text()
         self.app_title_label.setText(self.t("app_name"))
+
+        # REBUILD Guide labels to ensure dynamic text and styles refresh
+        self.refresh_guide_page()
         
         # Dashboard
         self.dash_header.setText(self.t("dash_header"))
@@ -1109,11 +1641,21 @@ class App(QWidget):
         self.rb_city.setText(self.t("mode_city"))
         self.extra_group_box.setTitle(self.t("group_extra"))
         self.cb_copy.setText(self.t("copy_mode"))
+        self.cb_recursive.setText(self.t("recursive_mode"))
         self.start_btn.setText(self.t("btn_start"))
         self.status_label.setText(self.t("status_ready"))
         
+        # Update AI Tags
+        for cb in self.check_boxes:
+            tag_key = cb.property("tag_key")
+            if tag_key:
+                cb.setText(self.t(tag_key))
+        self.ai_label_input.setPlaceholderText(self.t("ai_label_tip"))
+        self.rb_ai.setText(self.t("mode_ai"))
+
         # History
         self.hist_header_label.setText(self.t("hist_header"))
+        self.btn_clear_hist.setText(self.t("btn_clear_hist"))
         self.refresh_history_ui()
         
         # Settings
@@ -1137,7 +1679,7 @@ class App(QWidget):
     def change_theme_color(self, color):
         self.current_theme_color = color
         self.save_config()
-        self.app_title_label.setStyleSheet(f"font-size: 20px; font-weight: bold; margin-left: 20px; margin-bottom: 2px; color: {color};")
+        # Ensure we don't accidentally override the entire stylesheet if it affects layout
         self.apply_theme()
 
     def browse_folder(self):
@@ -1157,20 +1699,105 @@ class App(QWidget):
 
         # Disable UI
         self.set_ui_busy(True)
+
+        # 重置进度条样式为主题色并隐藏（直到第一张图处理完）
+        p_bg = "#e5e5ea" if not self.is_dark_mode else "#3a3a3c"
+        self.progress_bar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: {p_bg};
+                border: none;
+                border-radius: 3px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {self.current_theme_color};
+                border-radius: 3px;
+            }}
+        """)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(False)
         
         # Determine mode
         mode = 'date'
+        custom_labels = None
         if self.rb_month.isChecked():
             mode = 'month'
         elif self.rb_city.isChecked():
             mode = 'city'
+        elif self.rb_ai.isChecked():
+            mode = 'ai'
+            selected_labels = [cb.text() for cb in self.check_boxes if cb.isChecked()]
+            label_text_extra = self.ai_label_input.text().strip()
+            if label_text_extra:
+                extra_labels = [l.strip() for l in label_text_extra.replace('，', ',').split(',') if l.strip()]
+                selected_labels.extend(extra_labels)
+            custom_labels = list(set(selected_labels)) # Unique labels
             
         # Start Thread
-        self.worker = SortWorker(folder, mode, self.cb_copy.isChecked(), self.lang)
+        model_dir = str(self.res_dir / "assets" / "models" / "chinese-clip-vit-base-patch16")
+        self.worker = SortWorker(
+            folder, mode, self.cb_copy.isChecked(), 
+            recursive=self.cb_recursive.isChecked(),
+            lang=self.lang, model_dir=model_dir, custom_labels=custom_labels
+        )
         self.worker.progress.connect(self.update_status)
+        self.worker.total_count_ready.connect(self.set_total_count)
+        self.worker.progress_val.connect(self.update_progress_bar)
         self.worker.finished.connect(self.on_finished)
         self.worker.error.connect(self.on_error)
         self.worker.start()
+        
+        # Timing start for progress bar logic
+        self.sorting_start_time = time.time()
+        self.total_count = 0
+        self.first_photo_done = False
+
+    def set_total_count(self, count):
+        self.total_count = count
+
+    def update_progress_bar(self, value):
+        # If we already finished or it's the 100% signal, jump to 5000 (100% in new scale)
+        if value >= 100:
+            if hasattr(self, 'pb_anim'):
+                self.pb_anim.stop()
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setValue(5000)
+            return
+
+        # We wait for the first real progress (>0) to calculate timing
+        if not self.first_photo_done and value > 0:
+            t1 = time.time() - self.sorting_start_time
+            self.first_photo_done = True
+            
+            # Now show and animate fake progress
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setValue(0) # 强制从 0 开始
+            
+            if self.total_count > 2:
+                # T_fake = t1 * (total - 1.5)
+                t_fake_ms = int(t1 * (self.total_count - 1.5) * 1000)
+                
+                if not hasattr(self, 'pb_anim'):
+                    self.pb_anim = QPropertyAnimation(self.progress_bar, b"value")
+                
+                self.pb_anim.stop()
+                
+                # 为了模拟“努力工作”的起伏感，我们手动注入关键帧
+                # 1234 节点全部提前 10% (0.25->0.15, 0.40->0.30, 0.70->0.60, 0.85->0.75)
+                self.pb_anim.setEasingCurve(QEasingCurve.Type.InOutSine) 
+                self.pb_anim.setDuration(t_fake_ms)
+                self.pb_anim.setStartValue(0) # 动画起始值设为 0
+                self.pb_anim.setEndValue(4800)
+                
+                # 注入非线性的快慢“努力感”关键帧
+                self.pb_anim.setKeyValueAt(0.15, 4800 * 0.15) 
+                self.pb_anim.setKeyValueAt(0.30, 4800 * 0.45) 
+                self.pb_anim.setKeyValueAt(0.60, 4800 * 0.60) 
+                self.pb_anim.setKeyValueAt(0.75, 4800 * 0.88) 
+                
+                self.pb_anim.start()
+            elif self.total_count == 2:
+                 self.progress_bar.setValue(2500)
+            return
 
     def update_status(self, msg):
         self.status_label.setText(msg)
@@ -1181,17 +1808,40 @@ class App(QWidget):
     def set_ui_busy(self, busy):
         self.start_btn.setEnabled(not busy)
         self.path_input.setEnabled(not busy)
+        from PyQt6.QtCore import QTimer
         if busy:
+            # 800ms 渐显
             self.status_anim.stop()
-            self.pulse_anim.start()
-        else:
             self.pulse_anim.stop()
-            self.opacity_effect.setOpacity(1.0)
-
+            self.status_label.show()
+            self.status_label.setStyleSheet("opacity: 1.0;") # 确保开始时文字是不透明的
+            self.status_anim.start()
+            # 结束后接呼吸动画
+            QTimer.singleShot(800, lambda: self.pulse_anim.start() if not self.start_btn.isEnabled() else None)
+        else:
+            # 处理完成后停止呼吸动画，但不 hide 也不设为透明，让它留存
+            self.pulse_anim.stop()
+            self.status_anim.stop()
+            self.opacity_effect.setOpacity(1.0) # 强制设为不透明
+            self.status_label.show()
+            
     def on_finished(self, result):
         self.set_ui_busy(False)
+        # 处理完成后进度条保持 100%
+        if result.get("success"):
+            self.progress_bar.setValue(5000)
+            self.progress_bar.show()
+            
+            # 将结果留存在原本的 status_label 位置，而不是进度条里面
+            count = result.get("count", 0)
+            finish_text = self.t("status_done").format(count)
+            self.status_label.setText(finish_text)
+            self.status_label.show()
+        else:
+            self.progress_bar.hide()
+            self.status_label.setText(self.t("status_ready"))
+            
         msg = result["msg"]
-        self.status_label.setText(self.t("status_done").format(result.get("count", 0)))
         
         if result.get("success"):
             target_path = result.get("target")
@@ -1284,8 +1934,21 @@ class App(QWidget):
         except Exception as e:
             ModernMessageBox.show_message(self, self.t("msg_error"), f"{self.t('msg_open_error')}\n{str(e)}", mode="error")
 
+    def clear_history(self):
+        # Clear JSON file
+        try:
+            with open(self.history_file, 'w', encoding='utf-8') as f:
+                json.dump([], f)
+            # Update data and UI
+            self.history_data = [] # Explicitly clear the in-memory data
+            self.refresh_history_ui()
+            ModernMessageBox.show_message(self, self.t("msg_success"), self.t("hist_empty"), mode="success")
+        except Exception as e:
+            print(f"Error clearing history: {e}")
+
     def on_error(self, err):
         self.set_ui_busy(False)
+        self.progress_bar.setVisible(False)
         self.status_label.setText(self.t("status_error"))
         ModernMessageBox.show_message(self, self.t("msg_error"), f"{self.t('msg_proc_error')}\n{err}", mode="error")
 
