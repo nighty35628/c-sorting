@@ -1796,9 +1796,12 @@ class App(QWidget):
 
         # Content Sections
         if self.lang == "zh-cn":
-            guide_scroll_v.addWidget(create_guide_card("关于本软件", 
+            about_content = (
                 "C-SORTING 是一款基于 PyQt6 开发的现代化智能照片分类工具，旨在帮助用户快速整理杂乱的照片库。"
-                "无论是相机导出的海量照片，还是日常积累的随手拍，本工具都能通过多种分类方式让您的媒体库变得井井有条。"))
+                "无论是相机导出的海量照片，还是日常积累的随手拍，本工具都能通过多种分类方式让您的媒体库变得井井有条。"
+                f"<div style='text-align: right; color: gray; font-style: italic; margin-top: 5px;'>“拿你所有的，换你想要的。”</div>"
+            )
+            guide_scroll_v.addWidget(create_guide_card("关于本软件", about_content))
 
             modes_content = (
                 f"<p><b>📅 按日期分类</b><br>支持精确到天（YYYY-MM-DD）或按月份（YYYY-MM）归档，让时间线一目了然。</p>"
@@ -1825,8 +1828,8 @@ class App(QWidget):
 
             edition_content = (
                 f"本软件体积较大的主要原因是内置了本地 AI 模型（Chinese CLIP），以实现完全本地化的智能分类功能。如果您不需要 AI 相关功能，可以选择下载轻量版 <b>C-SORTING Light</b>。<br><br>"
-                f"轻量版将移除 AI 模型及相关依赖，保留基础的日期分类、地点分类等核心功能，体积更小、启动更快。Light 版本将与主版本一同发布在 GitHub Releases 页面，项目地址为：<br><br>"
-                f"<a href='https://github.com/nighty35628/c-sorting-light' style='color:{primary};'>获取 c-sorting-lite</a>"
+                f"轻量版将移除 AI 模型及相关依赖，保留基础的日期分类、地点分类等核心功能，体积更小、启动更快。Lite 版本将与主版本一同发布在 GitHub Releases 页面，项目地址为：<br><br>"
+                f"<a href='https://github.com/nighty35628/c-sorting-lite' style='color:{primary};'>获取 c-sorting-lite</a>"
             )
             guide_scroll_v.addWidget(create_guide_card("关于软件体积", edition_content))
 
@@ -1848,9 +1851,12 @@ class App(QWidget):
             )
             guide_scroll_v.addWidget(create_guide_card("作者声明", author_content))
         else:
-            guide_scroll_v.addWidget(create_guide_card("About", 
+            about_content = (
                 "C-SORTING is a modern AI-powered photo organization tool built with PyQt6, designed to help users quickly organize cluttered photo libraries."
-                "Whether it's a massive export from a camera or daily casual shots, this tool keeps your media library tidy through various sorting methods."))
+                "Whether it's a massive export from a camera or daily casual shots, this tool keeps your media library tidy through various sorting methods."
+                f"<div style='text-align: right; color: gray; font-style: italic; margin-top: 5px;'>\"Take all you have, for all you want.\"</div>"
+            )
+            guide_scroll_v.addWidget(create_guide_card("About", about_content))
 
             modes_content = (
                 f"<p><b>📅 Sort by Date</b><br>Supports archiving by day (YYYY-MM-DD) or month (YYYY-MM), making your timeline clear at a glance.</p>"

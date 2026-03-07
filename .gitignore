@@ -18,6 +18,8 @@ history.json
 # Executables
 *.exe
 setup/
+*.iss
+c-sorting-start.md
 
 # Package distributions
 debian/
