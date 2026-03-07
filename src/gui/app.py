@@ -34,9 +34,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import (
     Qt, QThread, pyqtSignal, QPropertyAnimation, 
     QEasingCurve, QAbstractAnimation, QByteArray,
-    QParallelAnimationGroup
+    QParallelAnimationGroup, QUrl
 )
-from PyQt6.QtGui import QPixmap, QIcon, QAction
+from PyQt6.QtGui import QPixmap, QIcon, QAction, QDesktopServices
 
 # Fix relative import when running as a script
 if __name__ == "__main__" and __package__ is None:
@@ -229,6 +229,31 @@ TRANSLATIONS = {
         "tray_exit": "Quit",
     }
 }
+
+class ClickableLabel(QLabel):
+    """A label that emits a signal when clicked, used for links."""
+    clicked = pyqtSignal(str)
+
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent)
+        # Default cursor should be arrow
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            # For QLabel, anchorAt is not available, but we can use openExternalLinks 
+            # or rely on the underlying text Document if needed.
+            # Here we let the default handler and setOpenExternalLinks do their job,
+            # but we can also manually check for the link if openExternalLinks is buggy.
+            pass
+        super().mousePressEvent(event)
+
+    def event(self, e):
+        # QHelpEvent or QHoverEvent can be used, but since we want to know if we are over a link
+        # In PyQt6 QLabel with HTML, the cursor automatically changes if openExternalLinks is True
+        # but if it doesn't, we'd need a more complex way to find the anchor.
+        # Since 'anchorAt' failed, it means QLabel doesn't have it (it's in QTextEdit/QTextBrowser).
+        return super().event(e)
 
 class ModernMessageBox(QDialog):
     def __init__(self, parent, title, message, mode="info", theme_color="#fa2d48", is_dark=False, target_path=None):
@@ -600,6 +625,10 @@ class SortWorker(QThread):
 
 
 class App(QWidget):
+    def contextMenuEvent(self, event):
+        """Disable right-click context menu across the app."""
+        event.ignore()
+
     def __init__(self):
         super().__init__()
         
@@ -733,11 +762,13 @@ class App(QWidget):
             else:
                 self.show_and_raise()
 
-    def quit_app(self):
+    def quit_app(self, force=True):
+        """Quit the application directly without confirmation."""
         if hasattr(self, 'current_worker') and self.current_worker.isRunning():
-            res = ModernMessageBox.ask_exit_mode(self)
-            if res != 2: # Unless choose exit, don't quit
-                return
+            if not force:
+                res = ModernMessageBox.ask_exit_mode(self)
+                if res != 2: # Unless choose exit, don't quit
+                    return
             self.current_worker.terminate()
         
         QApplication.quit()
@@ -1692,6 +1723,7 @@ class App(QWidget):
         scrollbar_handle = "#c0c0c0" if not self.is_dark_mode else "#555555"
         scrollbar_handle_hover = "#a0a0a0" if not self.is_dark_mode else "#777777"
         guide_scroll = QScrollArea()
+        guide_scroll.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         guide_scroll.setWidgetResizable(True)
         guide_scroll.setFrameShape(QFrame.Shape.NoFrame)
         guide_scroll.setStyleSheet(f"""
@@ -1724,6 +1756,7 @@ class App(QWidget):
         """)
         
         guide_scroll_content = QWidget()
+        guide_scroll_content.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         guide_scroll_content.setStyleSheet("background: transparent;")
         guide_scroll_v = QVBoxLayout(guide_scroll_content)
         guide_scroll_v.setContentsMargins(0, 20, 16, 20)
@@ -1731,6 +1764,7 @@ class App(QWidget):
 
         def create_guide_card(title, content):
             card = QFrame()
+            card.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
             card.setObjectName("GuideCard")
             card.setStyleSheet(f"""
                 #GuideCard {{
@@ -1744,12 +1778,16 @@ class App(QWidget):
             card_v.setSpacing(6)
             
             title_label = QLabel(title)
+            title_label.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
             title_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            title_label.setCursor(Qt.CursorShape.ArrowCursor)
             title_label.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {primary}; background: transparent; border: none;")
             card_v.addWidget(title_label)
             
-            content_label = QLabel(content)
-            content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            # Using ClickableLabel for blocks that may contain links
+            content_label = ClickableLabel(content)
+            content_label.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+            content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
             content_label.setWordWrap(True)
             content_label.setOpenExternalLinks(True)
             content_label.setStyleSheet(f"font-size: 14px; color: {text_color}; line-height: 1.5; background: transparent; border: none;")
