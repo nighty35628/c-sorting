@@ -1,4 +1,4 @@
-﻿[简体中文](#c-sorting) | [English](#c-sorting-en)
+[简体中文](#c-sorting) | [English](#c-sorting-en)
 
 # C-SORTING
 
@@ -73,19 +73,15 @@ sudo apt install ./packaging/debian/c-sorting_1.2.0-1_amd64.deb
 
 ## 🔄 版本更新
 
-- **v1.2.1** (2026-03-07): **交互体验与感知升级**。
-  - **交互大飞跃**：所有无边框弹窗均支持拖拽；“使用说明”文本支持鼠标选中复制。
-  - **智能感知**：进度条新增预计剩余时间（倒计时）显示。
-  - **常驻后台**：新增系统托盘支持，支持关闭时隐藏至后台运行。
 - **v1.2.0** (2026-03-06): **AI 与感知性能升级**。
   - **能工智人 (AI) 分类**：新增基于 Chinese-CLIP 的智能分类功能。
-  - **感知性能优化**：重构进度条逻辑，引入 5000 级分度与非线性 Keyframe 动画。
-  - **UI 细节打磨**：优化 Dashboard 布局，新增物理 SVG 勾选框图标。
-  - **历史管理**：新增“清空历史记录”功能。
+  - **感知性能优化**：重构进度条逻辑，引入 5000 级分度与非线性 Keyframe 动画，进度跟随“计算压力”产生起伏感，极致丝滑。
+  - **UI 细节打磨**：重新平衡了 Dashboard 布局，优化了 AI 预设标签的 3x4 矩阵显示，新增物理 SVG 勾选框图标。
+  - **历史管理**：新增“清空历史记录”功能，支持实时 UI 刷新。
 - **v1.1.0**: 增加多格式支持与初步视频处理。
 
 ## 许可证
-AGPLv3
+MIT
 
 ---
 
@@ -109,7 +105,7 @@ AGPLv3
 - **History Management**: Track tasks and **Clear History** with one click.
 - **Multi-language**: Full Chinese and English support.
 
-## 🚀 Quick Start
+## � Quick Start
 
 ### ⚠️ Model Preparation (Important)
 Due to file size limits, the pre-trained models are not included in this repository. To use the AI sorting feature:
@@ -133,16 +129,13 @@ pip install -r requirements.txt
 python src/main.py
 ```
 
-## 🔄 What's New
+## �🔄 What's New
 
-- **v1.2.1** (2026-03-07): **UX & Perception Overhaul**.
-  - **Interaction**: All frameless dialogs are now draggable; User Guide text is now selectable.
-  - **Smart Perception**: Added real-time 'Time Remaining' estimation to progress bars.
-  - **Background Persistence**: Added System Tray support with 'Run in Background' option.
 - **v1.2.0** (2026-03-06): **AI & Perception Performance Update**.
   - **Clever Craftsman AI**: Smart categorization using Chinese-CLIP models.
-  - **Smooth UI Progress**: New 5k-res non-linear animation system.
-  - **History**: Added 'Clear History' button with immediate UI feedback.
+  - **Smooth UI Progress**: New 5000-level progress bar with "Heartbeat" keyframe animations.
+  - **UI Refinement**: Rebalanced dashboard, 3x4 Grid tags, and new SVG-based checkbox styles.
+  - **History**: Added "Clear History" button with immediate UI feedback.
 
 ## License
-AGPLv3
+AGPL-3.0

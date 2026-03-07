@@ -19,6 +19,7 @@ import json
 import os
 import subprocess
 import base64
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -27,14 +28,26 @@ from PyQt6.QtWidgets import (
     QPushButton, QRadioButton, QCheckBox, QFileDialog, 
     QMessageBox, QGroupBox, QButtonGroup, QProgressBar,
     QGraphicsOpacityEffect, QApplication, QStackedWidget,
-    QGridLayout, QScrollArea, QFrame, QDialog, QGraphicsDropShadowEffect
+    QGridLayout, QScrollArea, QFrame, QDialog, QGraphicsDropShadowEffect,
+    QSystemTrayIcon, QMenu
 )
 from PyQt6.QtCore import (
     Qt, QThread, pyqtSignal, QPropertyAnimation, 
     QEasingCurve, QAbstractAnimation, QByteArray,
     QParallelAnimationGroup
 )
-from PyQt6.QtGui import QPixmap, QIcon
+from PyQt6.QtGui import QPixmap, QIcon, QAction
+
+# Fix relative import when running as a script
+if __name__ == "__main__" and __package__ is None:
+    import sys
+    from pathlib import Path
+    # Add project root to sys.path
+    project_root = str(Path(__file__).parent.parent.parent)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    __package__ = "src.gui"
+
 from ..sorter import scan_folder, group_by_date, group_by_month, group_by_city, group_by_ai, move_grouped_items
 from ..models.recognition import Recognizer
 
@@ -115,6 +128,17 @@ TRANSLATIONS = {
         "tag_firework": "烟花",
         "tag_plant": "绿植",
         "tag_flower": "花",
+        "remaining_time": "预计剩余时间: {}",
+        "time_min_sec": "{}分钟",
+        "time_sec": "1分钟",
+        "close_title": "退出确认",
+        "close_msg": "是否将程序转入后台运行？",
+        "btn_background": "后台运行",
+        "btn_exit": "直接关闭",
+        "msg_ai_running_title": "AI 任务运行中",
+        "msg_ai_running_body": "程序已转入后台继续为您分类照片，预计还需 {} 完成。",
+        "tray_show": "显示主界面",
+        "tray_exit": "退出程序",
     },
     "en": {
         "app_name": "C-SORTING",
@@ -192,6 +216,17 @@ TRANSLATIONS = {
         "tag_firework": "Firework",
         "tag_plant": "Plant",
         "tag_flower": "Flower",
+        "remaining_time": "Estimated: {}",
+        "time_min_sec": "{} min",
+        "time_sec": "1 min",
+        "close_title": "Exit Confirmation",
+        "close_msg": "Should the program run in the background?",
+        "btn_background": "Run in Background",
+        "btn_exit": "Exit Now",
+        "msg_ai_running_title": "AI Task Running",
+        "msg_ai_running_body": "Running in background to organize photos. Approx. {} left.",
+        "tray_show": "Show Window",
+        "tray_exit": "Quit",
     }
 }
 
@@ -200,6 +235,7 @@ class ModernMessageBox(QDialog):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._drag_pos = None
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -346,12 +382,129 @@ class ModernMessageBox(QDialog):
         
         layout.addWidget(self.frame)
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
+
     @staticmethod
     def show_message(parent, title, message, mode="info", target_path=None):
         theme = parent.current_theme_color if hasattr(parent, 'current_theme_color') else "#fa2d48"
         dark = parent.is_dark_mode if hasattr(parent, 'is_dark_mode') else False
         dlg = ModernMessageBox(parent, title, message, mode, theme, dark, target_path)
         dlg.exec()
+
+    @staticmethod
+    def ask_exit_mode(parent):
+        theme = parent.current_theme_color if hasattr(parent, 'current_theme_color') else "#fa2d48"
+        dark = parent.is_dark_mode if hasattr(parent, 'is_dark_mode') else False
+        
+        class DraggableExitDialog(QDialog):
+            def __init__(self, parent):
+                super().__init__(parent)
+                self._drag_pos = None
+            def mousePressEvent(self, event):
+                if event.button() == Qt.MouseButton.LeftButton:
+                    self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                    event.accept()
+            def mouseMoveEvent(self, event):
+                if event.buttons() == Qt.MouseButton.LeftButton and self._drag_pos is not None:
+                    self.move(event.globalPosition().toPoint() - self._drag_pos)
+                    event.accept()
+            def mouseReleaseEvent(self, event):
+                self._drag_pos = None
+                event.accept()
+
+        dlg = DraggableExitDialog(parent)
+        dlg.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
+        dlg.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        bg_color = "#1c1c1e" if dark else "#ffffff"
+        text_color = "#ffffff" if dark else "#000000"
+        border_color = "#3a3a3c" if dark else "#d1d1d6"
+        s_bg = "#f5f5f7" if not dark else "#2c2c2e"
+        s_text = "#000000" if not dark else "#ffffff"
+        s_border = "#d2d2d7" if not dark else "#3a3a3c"
+        s_hover = "#e8e8ed" if not dark else "#3a3a3c"
+
+        layout = QVBoxLayout(dlg)
+        frame = QFrame()
+        frame.setStyleSheet(f"QFrame {{ background-color: {bg_color}; border: 1px solid {border_color}; border-radius: 24px; }}")
+        
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(30)
+        shadow.setColor(Qt.GlobalColor.black if dark else Qt.GlobalColor.gray)
+        frame.setGraphicsEffect(shadow)
+
+        f_layout = QVBoxLayout(frame)
+        f_layout.setContentsMargins(35, 35, 35, 30)
+        f_layout.setSpacing(20)
+
+        title_label = QLabel(parent.t("close_title"))
+        title_label.setStyleSheet(f"font-size: 20px; font-weight: bold; color: {text_color}; border: none;")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        f_layout.addWidget(title_label)
+        
+        msg_label = QLabel(parent.t("close_msg"))
+        msg_label.setStyleSheet(f"font-size: 15px; color: {'#86868b' if not dark else '#98989d'}; border: none; line-height: 1.4;")
+        msg_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        msg_label.setWordWrap(True)
+        f_layout.addWidget(msg_label)
+
+        btn_v = QVBoxLayout()
+        btn_v.setSpacing(12)
+        btn_v.setContentsMargins(0, 10, 0, 0)
+
+        bg_btn = QPushButton(parent.t("btn_background"))
+        bg_btn.setMinimumHeight(48)
+        bg_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        bg_btn.setStyleSheet(f"""
+            QPushButton {{ 
+                background-color: {s_bg}; 
+                color: {s_text}; 
+                border: 1px solid {s_border}; 
+                border-radius: 14px; 
+                font-weight: bold; 
+                font-size: 15px; 
+            }}
+            QPushButton:hover {{
+                background-color: {s_hover};
+            }}
+        """)
+        bg_btn.clicked.connect(lambda: dlg.done(1))
+        btn_v.addWidget(bg_btn)
+
+        exit_btn = QPushButton(parent.t("btn_exit"))
+        exit_btn.setMinimumHeight(48)
+        exit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        exit_btn.setStyleSheet(f"""
+            QPushButton {{ 
+                background-color: {s_bg}; 
+                color: {s_text}; 
+                border: 1px solid {s_border}; 
+                border-radius: 14px; 
+                font-weight: bold; 
+                font-size: 15px; 
+            }}
+            QPushButton:hover {{
+                background-color: {s_hover};
+            }}
+        """)
+        exit_btn.clicked.connect(lambda: dlg.done(2))
+        btn_v.addWidget(exit_btn)
+
+        f_layout.addLayout(btn_v)
+        layout.addWidget(frame)
+        
+        return dlg.exec() # returns 1 for background, 2 for exit
 
 class SortWorker(QThread):
     progress = pyqtSignal(str)
@@ -452,16 +605,20 @@ class App(QWidget):
         
         # Path configuration for portability (Handles Dev and EXE)
         if getattr(sys, 'frozen', False):
-            # For data (configs): Next to the EXE
             self.base_dir = Path(sys.executable).parent
             # For resources (images/assets): Inside the bundled directory (_internal)
             self.res_dir = Path(getattr(sys, '_MEIPASS', self.base_dir))
+            self.data_dir = self.get_user_data_dir()
         else:
             self.base_dir = Path(__file__).parent.parent.parent
             self.res_dir = self.base_dir
+            self.data_dir = self.base_dir
+
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.migrate_legacy_data_files()
             
         # Load config (theme/color)
-        self.config_file = self.base_dir / "config.json"
+        self.config_file = self.data_dir / "config.json"
         self.config = self.load_config()
         
         # Theme state
@@ -478,7 +635,7 @@ class App(QWidget):
         # Resource Path for QSS
         self.svg_check = (self.res_dir / "assets" / "check.svg").as_posix()
         
-        self.history_file = self.base_dir / "history.json"
+        self.history_file = self.data_dir / "history.json"
         self.history_data = self.load_history()
         
         self.setWindowTitle('C-SORTING')
@@ -495,8 +652,95 @@ class App(QWidget):
         elif app_icon_path.exists():
             self.setWindowIcon(QIcon(str(app_icon_path)))
             
+        self.init_tray_icon()
         self.setup_ui()
         self.apply_theme()
+
+    def init_tray_icon(self):
+        """Initialize system tray icon and menu."""
+        self.tray_icon = QSystemTrayIcon(self)
+        
+        # Use available icon
+        icon_path = self.res_dir / "assets" / "favicon.ico"
+        if not icon_path.exists():
+            icon_path = self.res_dir / "assets" / "icon.png"
+            
+        if icon_path.exists():
+            self.tray_icon.setIcon(QIcon(str(icon_path)))
+        
+        self.tray_menu = QMenu()
+        self.show_action = QAction(self.t("tray_show"), self)
+        self.exit_action = QAction(self.t("tray_exit"), self)
+        
+        self.show_action.triggered.connect(self.show_and_raise)
+        self.exit_action.triggered.connect(self.quit_app)
+        
+        self.tray_menu.addAction(self.show_action)
+        self.tray_menu.addSeparator()
+        self.tray_menu.addAction(self.exit_action)
+        
+        self.tray_icon.setContextMenu(self.tray_menu)
+        self.tray_icon.activated.connect(self.on_tray_icon_activated)
+        self.tray_icon.show()
+        self.apply_tray_style()
+
+    def apply_tray_style(self):
+        """Apply modern styling to the tray menu."""
+        bg = "#ffffff" if not self.is_dark_mode else "#1c1c1e"
+        text = "#1d1d1f" if not self.is_dark_mode else "#f5f5f7"
+        hover = "#f5f5f7" if not self.is_dark_mode else "#2c2c2e"
+        border = "#d2d2d7" if not self.is_dark_mode else "#38383a"
+        
+        # Set Window Flags to ensure we can have transparency
+        self.tray_menu.setWindowFlags(self.tray_menu.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.NoDropShadowWindowHint)
+        self.tray_menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        self.tray_menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {bg};
+                border: 1px solid {border};
+                border-radius: 12px;
+                padding: 6px;
+            }}
+            QMenu::item {{
+                padding: 8px 25px 8px 15px;
+                border-radius: 6px;
+                color: {text};
+                font-size: 13px;
+                background-color: transparent;
+                margin: 1px 0px;
+            }}
+            QMenu::item:selected {{
+                background-color: {hover};
+                color: {self.current_theme_color};
+            }}
+            QMenu::separator {{
+                height: 1px;
+                background: {border};
+                margin: 4px 10px;
+            }}
+        """)
+
+    def show_and_raise(self):
+        self.show()
+        self.activateWindow()
+        self.raise_()
+
+    def on_tray_icon_activated(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.Trigger: # Left click
+            if self.isVisible():
+                self.hide()
+            else:
+                self.show_and_raise()
+
+    def quit_app(self):
+        if hasattr(self, 'current_worker') and self.current_worker.isRunning():
+            res = ModernMessageBox.ask_exit_mode(self)
+            if res != 2: # Unless choose exit, don't quit
+                return
+            self.current_worker.terminate()
+        
+        QApplication.quit()
 
     def resizeEvent(self, event):
         """Handle responsive sidebar and main content layout adjustment."""
@@ -534,6 +778,37 @@ class App(QWidget):
         except:
             pass
 
+    def get_user_data_dir(self):
+        if sys.platform == "win32":
+            appdata = os.getenv("APPDATA")
+            if appdata:
+                return Path(appdata) / "C-SORTING"
+            return Path.home() / "AppData" / "Roaming" / "C-SORTING"
+
+        if sys.platform == "darwin":
+            return Path.home() / "Library" / "Application Support" / "C-SORTING"
+
+        xdg_config_home = os.getenv("XDG_CONFIG_HOME")
+        if xdg_config_home:
+            return Path(xdg_config_home) / "c-sorting"
+        return Path.home() / ".config" / "c-sorting"
+
+    def migrate_legacy_data_files(self):
+        legacy_files = {
+            "config.json": self.base_dir / "config.json",
+            "history.json": self.base_dir / "history.json",
+        }
+
+        for name, legacy_path in legacy_files.items():
+            target_path = self.data_dir / name
+            if target_path.exists() or not legacy_path.exists() or legacy_path == target_path:
+                continue
+
+            try:
+                shutil.copy2(legacy_path, target_path)
+            except OSError:
+                continue
+
     def t(self, key):
         return TRANSLATIONS.get(self.lang, TRANSLATIONS["zh-cn"]).get(key, key)
 
@@ -560,6 +835,10 @@ class App(QWidget):
         self.setStyleSheet(self.get_stylesheet())
         if hasattr(self, 'refresh_guide_page'):
             self.refresh_guide_page()
+            
+        # Update Tray style if exists
+        if hasattr(self, 'apply_tray_style'):
+            self.apply_tray_style()
         
         # Update App Title color separately
         if hasattr(self, 'app_title_label'):
@@ -899,7 +1178,7 @@ class App(QWidget):
         self.app_title_label.setVisible(False)
         sidebar_layout.addWidget(self.app_title_label)
 
-        self.version_label = QLabel("v1.2.0")
+        self.version_label = QLabel("v1.2.1")
         self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.version_label.setStyleSheet("background: transparent; color: #86868b; font-size: 11px; margin-bottom: 10px;")
         self.version_label.setVisible(False)
@@ -1123,8 +1402,14 @@ class App(QWidget):
         self.status_label.setObjectName("StatusLabel")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
+        self.time_label = QLabel("")
+        self.time_label.setObjectName("StatusLabel")
+        self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.time_label.setVisible(False)
+        
         progress_layout.addWidget(self.progress_bar)
         progress_layout.addWidget(self.status_label)
+        progress_layout.addWidget(self.time_label)
         dash_layout.addWidget(self.progress_container)
 
         # Smooth Progress Animation
@@ -1459,10 +1744,12 @@ class App(QWidget):
             card_v.setSpacing(6)
             
             title_label = QLabel(title)
+            title_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             title_label.setStyleSheet(f"font-size: 16px; font-weight: bold; color: {primary}; background: transparent; border: none;")
             card_v.addWidget(title_label)
             
             content_label = QLabel(content)
+            content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             content_label.setWordWrap(True)
             content_label.setOpenExternalLinks(True)
             content_label.setStyleSheet(f"font-size: 14px; color: {text_color}; line-height: 1.5; background: transparent; border: none;")
@@ -1750,9 +2037,19 @@ class App(QWidget):
         self.sorting_start_time = time.time()
         self.total_count = 0
         self.first_photo_done = False
+        self.current_worker = self.worker # Store reference
 
     def set_total_count(self, count):
         self.total_count = count
+
+    def format_time(self, seconds):
+        if seconds < 60:
+            return self.t("time_sec")
+        else:
+            m = int(seconds // 60)
+            if seconds % 60 > 0: # 向上取整，让用户有心理预期
+                m += 1
+            return self.t("time_min_sec").format(m)
 
     def update_progress_bar(self, value):
         # If we already finished or it's the 100% signal, jump to 5000 (100% in new scale)
@@ -1761,6 +2058,7 @@ class App(QWidget):
                 self.pb_anim.stop()
             self.progress_bar.setVisible(True)
             self.progress_bar.setValue(5000)
+            self.time_label.setVisible(False)
             return
 
         # We wait for the first real progress (>0) to calculate timing
@@ -1771,33 +2069,72 @@ class App(QWidget):
             # Now show and animate fake progress
             self.progress_bar.setVisible(True)
             self.progress_bar.setValue(0) # 强制从 0 开始
+            self.time_label.setVisible(True)
             
-            if self.total_count > 2:
+            if self.total_count > 1:
                 # T_fake = t1 * (total - 1.5)
-                t_fake_ms = int(t1 * (self.total_count - 1.5) * 1000)
+                # Ensure t_fake is positive
+                t_fake = t1 * max(0.1, (self.total_count - 1.2)) # Use a slightly more realistic multiplier
+                t_fake_ms = int(t_fake * 1000)
+                
+                # Setup time countdown
+                self.remaining_seconds = t_fake
+                if hasattr(self, 'timer_countdown'):
+                    self.timer_countdown.stop()
+                else:
+                    from PyQt6.QtCore import QTimer
+                    self.timer_countdown = QTimer(self)
+                    self.timer_countdown.timeout.connect(self.update_countdown)
+                self.timer_countdown.start(1000)
+                self.update_countdown() # Initial update
                 
                 if not hasattr(self, 'pb_anim'):
                     self.pb_anim = QPropertyAnimation(self.progress_bar, b"value")
                 
                 self.pb_anim.stop()
                 
-                # 为了模拟“努力工作”的起伏感，我们手动注入关键帧
-                # 1234 节点全部提前 10% (0.25->0.15, 0.40->0.30, 0.70->0.60, 0.85->0.75)
                 self.pb_anim.setEasingCurve(QEasingCurve.Type.InOutSine) 
                 self.pb_anim.setDuration(t_fake_ms)
-                self.pb_anim.setStartValue(0) # 动画起始值设为 0
+                self.pb_anim.setStartValue(0)
                 self.pb_anim.setEndValue(4800)
                 
-                # 注入非线性的快慢“努力感”关键帧
                 self.pb_anim.setKeyValueAt(0.15, 4800 * 0.15) 
                 self.pb_anim.setKeyValueAt(0.30, 4800 * 0.45) 
                 self.pb_anim.setKeyValueAt(0.60, 4800 * 0.60) 
                 self.pb_anim.setKeyValueAt(0.75, 4800 * 0.88) 
                 
                 self.pb_anim.start()
-            elif self.total_count == 2:
+            elif self.total_count == 1:
                  self.progress_bar.setValue(2500)
             return
+
+    def update_countdown(self):
+        if self.remaining_seconds > 0:
+            self.time_label.setText(self.t("remaining_time").format(self.format_time(self.remaining_seconds)))
+            self.remaining_seconds -= 1
+        else:
+            self.time_label.setText(self.t("remaining_time").format(self.format_time(0)))
+            self.timer_countdown.stop()
+
+    def closeEvent(self, event):
+        res = ModernMessageBox.ask_exit_mode(self)
+        if res == 1: # Background
+            if hasattr(self, 'current_worker') and self.current_worker.isRunning() and self.rb_ai.isChecked():
+                est = self.time_label.text().split(": ")[-1] if self.time_label.isVisible() else "..."
+                self.tray_icon.showMessage(
+                    self.t("msg_ai_running_title"),
+                    self.t("msg_ai_running_body").format(est),
+                    QSystemTrayIcon.MessageIcon.Information,
+                    5000
+                )
+            self.hide()
+            event.ignore() 
+        elif res == 2: # Exit
+            if hasattr(self, 'current_worker') and self.current_worker.isRunning():
+                self.current_worker.terminate()
+            event.accept()
+        else:
+            event.ignore()
 
     def update_status(self, msg):
         self.status_label.setText(msg)
@@ -1827,6 +2164,9 @@ class App(QWidget):
             
     def on_finished(self, result):
         self.set_ui_busy(False)
+        self.time_label.setVisible(False)
+        if hasattr(self, 'timer_countdown') and self.timer_countdown.isActive():
+            self.timer_countdown.stop()
         # 处理完成后进度条保持 100%
         if result.get("success"):
             self.progress_bar.setValue(5000)
@@ -1949,6 +2289,9 @@ class App(QWidget):
     def on_error(self, err):
         self.set_ui_busy(False)
         self.progress_bar.setVisible(False)
+        self.time_label.setVisible(False)
+        if hasattr(self, 'timer_countdown') and self.timer_countdown.isActive():
+            self.timer_countdown.stop()
         self.status_label.setText(self.t("status_error"))
         ModernMessageBox.show_message(self, self.t("msg_error"), f"{self.t('msg_proc_error')}\n{err}", mode="error")
 
