@@ -2,6 +2,10 @@
 
 # C-SORTING
 
+> **运行环境要求**：Python 3.12.0
+>
+> **依赖安装**：`pip install -r requirements.txt`
+
 **C-SORTING** 是一款基于 PyQt6 开发的现代化智能照片分类工具，采用极简主义设计，旨在帮助用户快速整理杂乱的照片库。
 
 ## 🌟 核心功能
