@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
-assets/models/
+# assets/models/  <-- 移除或注释掉此行，允许提交模型
 
 # Build artifacts
 build/

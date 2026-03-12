@@ -35,7 +35,8 @@
 1. 在项目根目录下创建 `assets/models/chinese-clip-vit-base-patch16/` 文件夹。
 2. 下载模型文件并放入上述文件夹内。
    - **百度网盘**: [点击下载](https://pan.baidu.com/s/1fCbXxHOEJfCzXDD5zBNsUg?pwd=nity) (提取码: `nity`)
-   - **更多下载地址**: 我们后续将同步上线 **Hugging Face** 与 **魔搭 (ModelScope)** 镜像，敬请期待。
+   - **ModelScope**：[点击下载](https://www.modelscope.cn/models/nighty35628/clip-chinese-base-fp16/)
+   - **更多下载地址**: 我们后续将同步上线 **Hugging Face**镜像，敬请期待。
 
 ### Windows
 1. 克隆项目后，在根目录下创建并激活虚拟环境：
