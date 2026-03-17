@@ -36,6 +36,7 @@ from PyQt6.QtCore import (
     QEasingCurve, QAbstractAnimation, QByteArray,
     QParallelAnimationGroup, QUrl
 )
+from PyQt6.QtCore import QSize
 from PyQt6.QtGui import QPixmap, QIcon, QAction, QDesktopServices
 
 # Fix relative import when running as a script
@@ -1120,6 +1121,11 @@ class App(QWidget):
             font-weight: 600;
             color: {text_color};
         }}
+        #SubHeader {{
+            font-size: 14px;
+            color: {secondary_text};
+            margin-top: -5px;
+        }}
         #LabelHeading {{
             font-weight: 600; 
             font-size: 15px;
@@ -1227,13 +1233,20 @@ class App(QWidget):
         dash_layout.setContentsMargins(40, 30, 40, 30) # Increased margins
         dash_layout.setSpacing(25)
 
+        header_container = QWidget()
+        header_v = QVBoxLayout(header_container)
+        header_v.setContentsMargins(0, 0, 0, 0)
+        header_v.setSpacing(2)
+
         self.dash_header = QLabel(self.t("dash_header"))
         self.dash_header.setObjectName("Header")
-        dash_layout.addWidget(self.dash_header)
+        header_v.addWidget(self.dash_header)
 
         self.dash_desc = QLabel(self.t("dash_desc"))
         self.dash_desc.setObjectName("SubHeader")
-        dash_layout.addWidget(self.dash_desc)
+        header_v.addWidget(self.dash_desc)
+
+        dash_layout.addWidget(header_container)
 
         # Folder selection area
         folder_group = QVBoxLayout()
@@ -1762,7 +1775,7 @@ class App(QWidget):
         guide_scroll_v.setContentsMargins(0, 20, 16, 20)
         guide_scroll_v.setSpacing(20)
 
-        def create_guide_card(title, content):
+        def create_guide_card(title, content, links=None):
             card = QFrame()
             card.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
             card.setObjectName("GuideCard")
@@ -1790,66 +1803,94 @@ class App(QWidget):
             content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
             content_label.setWordWrap(True)
             content_label.setOpenExternalLinks(True)
-            content_label.setStyleSheet(f"font-size: 14px; color: {text_color}; line-height: 1.5; background: transparent; border: none;")
+            content_label.setStyleSheet(f"font-size: 15px; color: {text_color}; line-height: 1.6; background: transparent; border: none;")
             card_v.addWidget(content_label)
+
+            if links:
+                links_layout = QHBoxLayout()
+                links_layout.setContentsMargins(0, 4, 0, 0)
+                links_layout.setSpacing(10)
+                for label, url in links:
+                    btn = QPushButton(label)
+                    btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    
+                    # Apply color to SVG icon dynamically
+                    icon_path = str(Path(__file__).parent.parent.parent / 'assets' / 'icons' / 'external-link.svg')
+                    with open(icon_path, 'r', encoding='utf-8') as f:
+                        svg_data = f.read().replace('currentColor', primary)
+                    
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(QByteArray(svg_data.encode('utf-8')))
+                    btn.setIcon(QIcon(pixmap))
+                    btn.setIconSize(QSize(16, 16))
+                    
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            padding: 6px 14px;
+                            background-color: transparent;
+                            color: {primary};
+                            border: 1px solid {primary};
+                            border-radius: 8px;
+                            font-size: 14px;
+                            font-weight: 500;
+                            text-align: left;
+                        }}
+                        QPushButton:hover {{
+                            background-color: {"#e8e8ed" if not self.is_dark_mode else "#3a3a3c"};
+                        }}
+                    """)
+                    btn.clicked.connect(lambda checked, u=url: QDesktopServices.openUrl(QUrl(u)))
+                    links_layout.addWidget(btn)
+                links_layout.addStretch()
+                card_v.addLayout(links_layout)
+
             return card
 
         # Content Sections
         if self.lang == "zh-cn":
             about_content = (
-                "C-SORTING 是一款基于 PyQt6 开发的现代化智能照片分类工具，旨在帮助用户快速整理杂乱的照片库。"
-                "无论是相机导出的海量照片，还是日常积累的随手拍，本工具都能通过多种分类方式让您的媒体库变得井井有条。"
+                "C-SORTING 是一款现代化智能照片分类工具。这版重写保留了原项目的核心使用路径：选择源文件夹、切换分类方式，然后在本地把照片和视频整理到清晰的目录结构中。"
                 f"<div style='text-align: right; color: gray; font-style: italic; margin-top: 5px;'>“拿你所有的，换你想要的。”</div>"
             )
             guide_scroll_v.addWidget(create_guide_card("关于本软件", about_content))
 
             modes_content = (
-                f"<p><b>📅 按日期分类</b><br>支持精确到天（YYYY-MM-DD）或按月份（YYYY-MM）归档，让时间线一目了然。</p>"
-                f"<p><b>🌍 按地点分类</b><br>基于内置离线数据库，可精确识别到<b>县</b>或<b>县级市</b>级别（覆盖 337 个地级行政区）。所有地理信息解析均在本地完成。</p>"
-                f"<p><b>🤖 AI 智能分类</b><br>"
-                f"• <b>分类逻辑</b>：采用非监督思想分类，严格按你指定的标签进行归类，不会创建未选中的其他类别。<br>"
-                f"• <b>模型支持</b>：本功能基于开源模型 <a href='https://github.com/OFA-Sys/Chinese-CLIP' style='color:{primary};'>Chinese CLIP</a> 实现（由 OFA-Sys 团队开发），遵循 <b>Apache License 2.0</b> 开源协议。<br>"
-                f"• <b>重要提示</b>：若只想筛选出某类特定图片，请务必同时添加一个自定义的“其他”类别，否则所有图片将被归入你选择的单一标签中。<br>"
-                f"• <b>示例说明</b>：<br>"
-                f"&nbsp;&nbsp;- 如果只选择“花”，则所有照片都会被归到“花”中。<br>"
-                f"&nbsp;&nbsp;- 如果选择“花”和“其他”，则花的照片归“花”，不是花的照片归“其他”。<br>"
-                f"&nbsp;&nbsp;- 如果选择“花”和“鹦鹉”，则花的照片归“花”，不是花的照片归“鹦鹉”。</p>"
+                "按日期和按月份会优先读取 EXIF 拍摄时间，没有 EXIF 时回退到文件时间。按地理位置使用内置离线城市库。AI 智能分类则在本地调用 Chinese-CLIP，并严格按你选择的标签归类。"
             )
-            guide_scroll_v.addWidget(create_guide_card("分类方式", modes_content))
+            guide_scroll_v.addWidget(create_guide_card("分类方式", modes_content, [("Chinese-CLIP", "https://github.com/OFA-Sys/Chinese-CLIP")]))
 
             tips_content = (
-                f"<b>分类组合技巧</b><br>你可以灵活组合不同的分类方式，实现更精细的照片管理：<br>"
-                f"• <b>地理 + 日期</b>：先按地点分类，再在每个地点文件夹内按日期归档，就能看到每个地方不同日子拍摄的照片。<br>"
-                f"• <b>地理 + AI</b>：先按地点分类，再对特定地点的照片进行 AI 语义分类（如“猫”“狗”“风景”），轻松找到旅途中拍下的精彩瞬间。<br>"
-                f"• <b>日期 + AI</b>：先按年月归档，再对某个月份的照片进行 AI 分类，回顾当月拍过的花鸟鱼虫。<br><br>"
-                f"<b>AI 分类的创意玩法</b><br>你可以充分发挥创意，例如给全是人像的照片使用“猫”和“狗”的标签进行分类，就可以知道谁是小猫，谁是小狗了。"
+                "如果你只想筛出某一类图片，记得额外添加一个“其他”标签作为兜底。只选一个标签时，所有图片都会被归到这个标签下。"
             )
             guide_scroll_v.addWidget(create_guide_card("使用小技巧", tips_content))
 
             edition_content = (
-                f"本软件体积较大的主要原因是内置了本地 AI 模型（Chinese CLIP），以实现完全本地化的智能分类功能。如果您不需要 AI 相关功能，可以选择下载轻量版 <b>C-SORTING Light</b>。<br><br>"
-                f"轻量版将移除 AI 模型及相关依赖，保留基础的日期分类、地点分类等核心功能，体积更小、启动更快。Lite 版本将与主版本一同发布在 GitHub Releases 页面，项目地址为：<br><br>"
-                f"<a href='https://github.com/nighty35628/c-sorting-lite' style='color:{primary};'>获取 c-sorting-lite</a>"
+                "本软件体积较大的主要原因是内置了本地 AI 模型（Chinese CLIP），以实现完全本地化的智能分类功能。如果您不需要 AI 相关功能，可以选择下载轻量版 <b>C-SORTING Light</b>。<br><br>"
+                "轻量版将移除 AI 模型及相关依赖，保留基础的日期分类、地点分类等核心功能，体积更小、启动更快。Lite 版本将与主版本一同发布在 GitHub Releases 页面，项目地址为：<br>"
+                "https://github.com/nighty35628/c-sorting-lite"
             )
-            guide_scroll_v.addWidget(create_guide_card("关于软件体积", edition_content))
+            guide_scroll_v.addWidget(create_guide_card("关于软件体积", edition_content, [("获取 c-sorting-lite", "https://github.com/nighty35628/c-sorting-lite")]))
 
             guide_scroll_v.addWidget(create_guide_card("隐私说明", 
-                "本软件采用完全本地化设计，所有分类处理均在您的设备上完成，<b>无需联网</b>，确保您的照片和隐私数据不会外传。"))
+                "本软件采用完全本地化设计，所有分类处理均在您的设备上完成，无需联网，确保您的照片和隐私数据不会外传。"))
 
             icons_content = (
-                f"本软件图标来源于模组 <b>Touhou Little Maid</b> 中的道具“文文的相机”。<br><br>"
-                f"• <b>原作者</b>：TartaricAcid、Snownee 及美术团队<br>"
-                f"• <b>许可证</b>：<a href='https://creativecommons.org/licenses/by-nc-sa/4.0/' style='color:{primary};'>CC BY-NC-SA 4.0</a><br>"
-                f"• <b>模组发布页</b>：<a href='https://modrinth.com/mod/touhou-little-maid' style='color:{primary};'>Touhou Little Maid</a>"
+                "本软件图标来源于模组 <b>Touhou Little Maid</b> 中的道具“文文的相机”。<br><br>"
+                "• 原作者：TartaricAcid、Snownee 及美术团队<br>"
+                "• 许可证：CC BY-NC-SA 4.0<br>"
+                "• 模组发布页：https://modrinth.com/mod/touhou-little-maid"
             )
-            guide_scroll_v.addWidget(create_guide_card("软件图标声明", icons_content))
+            guide_scroll_v.addWidget(create_guide_card("软件图标声明", icons_content, [("Touhou Little Maid", "https://modrinth.com/mod/touhou-little-maid")]))
 
             author_content = (
-                f"• <b>项目地址</b>：<a href='https://github.com/nighty35628/c-sorting' style='color:{primary};'>GitHub Repository</a><br>"
-                f"• <b>作者博客</b>：<a href='https://blog.nightytech.com' style='color:{primary};'>nightytech.com</a><br>"
-                f"• <b>开源协议</b>：本项目遵循 <b>GNU Affero General Public License v3.0</b> 开源协议。"
+                "• 项目地址：https://github.com/nighty35628/c-sorting<br>"
+                "• 作者博客：https://blog.nightytech.com<br>"
+                "• 开源协议：本项目遵循 GNU Affero General Public License v3.0 开源协议。"
             )
-            guide_scroll_v.addWidget(create_guide_card("作者声明", author_content))
+            guide_scroll_v.addWidget(create_guide_card("作者声明", author_content, [
+                ("GitHub Repository", "https://github.com/nighty35628/c-sorting"),
+                ("nightytech.com", "https://blog.nightytech.com")
+            ]))
         else:
             about_content = (
                 "C-SORTING is a modern AI-powered photo organization tool built with PyQt6, designed to help users quickly organize cluttered photo libraries."
