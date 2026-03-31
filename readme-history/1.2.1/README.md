@@ -78,9 +78,6 @@ sudo apt install ./packaging/debian/c-sorting_1.2.0-1_amd64.deb
 
 ## 🔄 版本更新
 
-- **v1.2.2** (2026-03-31): **AI 识别精度可调**。
-  - **三档识别精度**：AI 分类新增「快速 / 标准 / 精确」三档采样模式，分别对应 1 / 5 / 10 视图采样，默认「标准」。
-  - **分段式选择器**：采用滑动动画分段控件，圆角与主题色跟随整体设计语言。
 - **v1.2.1** (2026-03-07): **交互体验与感知升级**。
   - **交互大飞跃**：所有无边框弹窗均支持拖拽；“使用说明”文本支持鼠标选中复制。
   - **智能感知**：进度条新增预计剩余时间（倒计时）显示。
@@ -143,9 +140,6 @@ python src/main.py
 
 ## 🔄 What's New
 
-- **v1.2.2** (2026-03-31): **Adjustable AI Recognition Quality**.
-  - **Three Quality Levels**: AI sorting now offers Fast / Standard / Precise modes with 1 / 5 / 10 multi-view sampling respectively. Defaults to Standard.
-  - **Segmented Control**: Smooth sliding segmented selector with theme-aware rounded design.
 - **v1.2.1** (2026-03-07): **UX & Perception Overhaul**.
   - **Interaction**: All frameless dialogs are now draggable; User Guide text is now selectable.
   - **Smart Perception**: Added real-time 'Time Remaining' estimation to progress bars.

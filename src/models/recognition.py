@@ -101,10 +101,11 @@ class Recognizer:
         self.txt_session = ort.InferenceSession(self.txt_model_path, providers=providers)
         self.tokenizer = SimpleChineseCLIPTokenizer(self.vocab_path)
 
-    def predict(self, image_path: str, custom_labels: Optional[List[str]] = None) -> str:
+    def predict(self, image_path: str, custom_labels: Optional[List[str]] = None, ai_quality: str = "precise") -> str:
         """
         通过「时间换准确率」的多角度采样（Multi-View Inference）与负面标签抑制（Negative Label Suppression）
         提高识别精确度。
+        ai_quality: "fast" (单中心裁剪), "standard" (5位置不翻转), "precise" (10视图)
         """
         if not self.img_session:
             self.load_model()
@@ -114,9 +115,9 @@ class Recognizer:
             if not labels: return "未定义分类"
 
             # 策略 1: 多角度采样 (Multi-View)
-            # 对图片进行中心裁剪、四个角落裁剪以及水平翻转，综合 10 个维度的特征。
+            # 对图片进行中心裁剪、四个角落裁剪以及水平翻转，综合多个维度的特征。
             img = Image.open(image_path).convert('RGB')
-            views = self._get_multi_views(img)
+            views = self._get_multi_views(img, ai_quality)
             
             view_feats = []
             for view_data in views:
@@ -149,37 +150,50 @@ class Recognizer:
             print(f"识别错误: {e}")
             return "分类失败"
 
-    def _get_multi_views(self, img: Image.Image) -> List[np.ndarray]:
-        """对单张图片生成 10 个采样视图（5个位置 x 2种翻转）"""
+    def _get_multi_views(self, img: Image.Image, ai_quality: str = "precise") -> List[np.ndarray]:
+        """根据质量级别生成采样视图: fast=1, standard=5, precise=10"""
         w, h = img.size
-        # 裁剪尺寸
-        crop_size = 224
         short_side = min(w, h)
         
-        # 定义采样位置: 中心, 左上, 右上, 左下, 右下
         crops = []
-        center_x, center_y = w // 2, h // 2
         
         # 针对长图/宽图先缩放到合适大小再采样
         scale = 256 / short_side
         img_scaled = img.resize((int(w * scale), int(h * scale)), resample=Image.Resampling.LANCZOS)
         sw, sh = img_scaled.size
         
-        # 5 个位置的偏移
-        offsets = [
-            (sw//2 - 112, sh//2 - 112), # Center
-            (0, 0),                       # Top-left
-            (sw - 224, 0),                # Top-right
-            (0, sh - 224),                # Bottom-left
-            (sw - 224, sh - 224)          # Bottom-right
-        ]
+        if ai_quality == "fast":
+            # 仅中心裁剪，不翻转
+            offsets = [(sw//2 - 112, sh//2 - 112)]
+            use_flip = False
+        elif ai_quality == "standard":
+            # 5 个位置，不翻转
+            offsets = [
+                (sw//2 - 112, sh//2 - 112), # Center
+                (0, 0),                       # Top-left
+                (sw - 224, 0),                # Top-right
+                (0, sh - 224),                # Bottom-left
+                (sw - 224, sh - 224)          # Bottom-right
+            ]
+            use_flip = False
+        else:  # precise
+            # 5 个位置 x 2 种翻转 = 10 视图
+            offsets = [
+                (sw//2 - 112, sh//2 - 112), # Center
+                (0, 0),                       # Top-left
+                (sw - 224, 0),                # Top-right
+                (0, sh - 224),                # Bottom-left
+                (sw - 224, sh - 224)          # Bottom-right
+            ]
+            use_flip = True
         
         mean = np.array([0.48145466, 0.4578275, 0.40821073], dtype=np.float32)
         std = np.array([0.26862954, 0.26130258, 0.27577711], dtype=np.float32)
 
         for ox, oy in offsets:
             crop = img_scaled.crop((ox, oy, ox + 224, oy + 224))
-            for flip in [False, True]:
+            flips = [False, True] if use_flip else [False]
+            for flip in flips:
                 view = crop.transpose(Image.FLIP_LEFT_RIGHT) if flip else crop
                 view_data = np.array(view).astype(np.float32)
                 view_data = (view_data / 255.0 - mean) / std

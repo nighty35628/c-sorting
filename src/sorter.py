@@ -48,11 +48,11 @@ class MediaItem:
             # Video metadata fallback to file time
             return {"datetime": self._get_file_datetime(), "gps": None}
 
-    def ai_tag(self, recognizer: Optional[Recognizer], custom_labels: Optional[List[str]] = None) -> str:
+    def ai_tag(self, recognizer: Optional[Recognizer], custom_labels: Optional[List[str]] = None, ai_quality: str = "precise") -> str:
         if self.media_type != 'image' or not recognizer:
             return "其他"
         if not self._ai_tag:
-            self._ai_tag = recognizer.predict(str(self.path), custom_labels)
+            self._ai_tag = recognizer.predict(str(self.path), custom_labels, ai_quality=ai_quality)
         return self._ai_tag
 
     def _get_file_datetime(self) -> str:
@@ -125,13 +125,13 @@ def group_by_city(items: List[MediaItem]) -> Dict[str, List[MediaItem]]:
         groups.setdefault(key, []).append(it)
     return groups
 
-def group_by_ai(items: List[MediaItem], recognizer: Recognizer, custom_labels: Optional[List[str]] = None, progress_callback=None) -> Dict[str, List[MediaItem]]:
+def group_by_ai(items: List[MediaItem], recognizer: Recognizer, custom_labels: Optional[List[str]] = None, progress_callback=None, ai_quality: str = "precise") -> Dict[str, List[MediaItem]]:
     groups = {}
     total = len(items)
     for idx, it in enumerate(items):
         # 仅对图片进行 AI 识别
         if it.media_type == 'image':
-            key = it.ai_tag(recognizer, custom_labels)
+            key = it.ai_tag(recognizer, custom_labels, ai_quality=ai_quality)
         else:
             key = "视频"
         groups.setdefault(key, []).append(it)

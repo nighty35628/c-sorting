@@ -116,6 +116,10 @@ TRANSLATIONS = {
         "mode_ai": "AI 智能分类",
         "ai_label_tip": "自定义标签 (逗号分隔):",
         "ai_loading": "能工智人分类中...",
+        "ai_quality_label": "识别精度",
+        "ai_quality_fast": "快速",
+        "ai_quality_standard": "标准",
+        "ai_quality_precise": "精确",
         "ai_predefined": "预设标签:",
         "tag_catdog": "猫狗",
         "tag_parrot": "鹦鹉",
@@ -204,6 +208,10 @@ TRANSLATIONS = {
         "mode_ai": "AI Smart Sort",
         "ai_label_tip": "Custom Labels (comma split):",
         "ai_loading": "Al Sorting...",
+        "ai_quality_label": "Recognition Quality",
+        "ai_quality_fast": "Fast",
+        "ai_quality_standard": "Standard",
+        "ai_quality_precise": "Precise",
         "ai_predefined": "Predefined:",
         "tag_catdog": "Cats & Dogs",
         "tag_parrot": "Parrot",
@@ -539,7 +547,7 @@ class SortWorker(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, folder, mode, copy_mode, recursive=True, lang="zh-cn", model_dir=None, custom_labels=None):
+    def __init__(self, folder, mode, copy_mode, recursive=True, lang="zh-cn", model_dir=None, custom_labels=None, ai_quality="precise"):
         super().__init__()
         self.folder = Path(folder)
         self.mode = mode
@@ -548,6 +556,7 @@ class SortWorker(QThread):
         self.lang = lang
         self.model_dir = model_dir
         self.custom_labels = custom_labels
+        self.ai_quality = ai_quality
 
     def t(self, key):
         return TRANSLATIONS.get(self.lang, TRANSLATIONS["zh-cn"]).get(key, key)
@@ -590,7 +599,7 @@ class SortWorker(QThread):
                 self.progress.emit(self.t("ai_loading"))
                 recognizer = Recognizer(self.model_dir)
                 recognizer.load_model()
-                p_groups = group_by_ai(photos, recognizer, self.custom_labels, progress_callback=lambda v: self.progress_val.emit(v))
+                p_groups = group_by_ai(photos, recognizer, self.custom_labels, progress_callback=lambda v: self.progress_val.emit(v), ai_quality=self.ai_quality)
                 v_groups = {"视频": videos} if videos else {}
                 p_target, v_target = get_target_paths("ai")
             
@@ -909,6 +918,10 @@ class App(QWidget):
         if hasattr(self, 'hist_list_layout'):
             self.refresh_history_ui()
 
+        # Update AI quality segmented control theme
+        if hasattr(self, '_seg_thumb'):
+            self._seg_thumb.setStyleSheet(f"background: {self.current_theme_color}; border-radius: 8px;")
+
     def get_stylesheet(self):
         primary = self.current_theme_color
         bg = "#ffffff" if not self.is_dark_mode else "#1c1c1e"
@@ -1215,7 +1228,7 @@ class App(QWidget):
         self.app_title_label.setVisible(False)
         sidebar_layout.addWidget(self.app_title_label)
 
-        self.version_label = QLabel("v1.2.1")
+        self.version_label = QLabel("v1.2.2")
         self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.version_label.setStyleSheet("background: transparent; color: #86868b; font-size: 11px; margin-bottom: 10px;")
         self.version_label.setVisible(False)
@@ -1369,11 +1382,99 @@ class App(QWidget):
             labels_grid.addWidget(cb, i // 4, i % 4)
         ai_options_layout.addWidget(self.labels_container)
 
+        # AI Quality segmented control + custom label input on one row
+        ai_bottom_row = QHBoxLayout()
+        ai_bottom_row.setContentsMargins(0, 0, 0, 0)
+        ai_bottom_row.setSpacing(6)
+
         self.ai_label_input = QLineEdit()
         self.ai_label_input.setPlaceholderText(self.t("ai_label_tip"))
-        self.ai_label_input.setFixedHeight(32) # Increased height to match other options
+        self.ai_label_input.setFixedHeight(28)
         self.ai_label_input.setStyleSheet("font-size: 11px; padding: 0 8px;")
-        ai_options_layout.addWidget(self.ai_label_input)
+        ai_bottom_row.addWidget(self.ai_label_input, 1)
+
+        # Segmented toggle buttons for AI quality
+        seg_container = QFrame()
+        seg_container.setFixedHeight(28)
+        seg_container.setStyleSheet(f"""
+            QFrame#SegFrame {{
+                border: 1.5px solid #d1d1d6;
+                border-radius: 10px;
+                background: transparent;
+            }}
+        """)
+        seg_container.setObjectName("SegFrame")
+        seg_layout = QHBoxLayout(seg_container)
+        seg_layout.setContentsMargins(2, 0, 2, 0)
+        seg_layout.setSpacing(1)
+
+        # Sliding highlight indicator
+        self._seg_thumb = QWidget(seg_container)
+        self._seg_thumb.setStyleSheet(f"background: {self.current_theme_color}; border-radius: 8px;")
+        self._seg_thumb.lower()  # Behind the buttons
+        self._seg_thumb_anim = QPropertyAnimation(self._seg_thumb, b"geometry")
+        self._seg_thumb_anim.setDuration(250)
+        self._seg_thumb_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        self.ai_quality_group = QButtonGroup(self)
+        self.ai_quality_group.setExclusive(True)
+        self._ai_quality_btns = []
+        tc = self.current_theme_color
+        for i, (label_key, value) in enumerate([
+            ("ai_quality_fast", "fast"),
+            ("ai_quality_standard", "standard"),
+            ("ai_quality_precise", "precise"),
+        ]):
+            btn = QPushButton(self.t(label_key))
+            btn.setCheckable(True)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setProperty("ai_quality_value", value)
+            btn.setFixedHeight(24)
+            btn.setMinimumWidth(36)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    font-size: 11px;
+                    padding: 0 8px;
+                    border: none;
+                    background: transparent;
+                    color: #8e8e93;
+                    border-radius: 8px;
+                }}
+                QPushButton:checked {{
+                    color: #fff;
+                    font-weight: bold;
+                    background: transparent;
+                }}
+            """)
+            self.ai_quality_group.addButton(btn, i)
+            self._ai_quality_btns.append(btn)
+            seg_layout.addWidget(btn)
+
+        def _update_seg_thumb(btn_id=None):
+            checked = self.ai_quality_group.checkedButton()
+            if not checked:
+                return
+            # Position the thumb over the checked button
+            from PyQt6.QtCore import QRect
+            pos = checked.pos()
+            self._seg_thumb_anim.stop()
+            target = QRect(pos.x(), pos.y(), checked.width(), checked.height())
+            if self._seg_thumb.width() == 0:
+                # First time — snap without animation
+                self._seg_thumb.setGeometry(target)
+            else:
+                self._seg_thumb_anim.setStartValue(self._seg_thumb.geometry())
+                self._seg_thumb_anim.setEndValue(target)
+                self._seg_thumb_anim.start()
+
+        self.ai_quality_group.idClicked.connect(_update_seg_thumb)
+        self._ai_quality_btns[1].setChecked(True)  # 默认: 标准
+        # Deferred initial thumb placement
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(0, _update_seg_thumb)
+
+        ai_bottom_row.addWidget(seg_container)
+        ai_options_layout.addLayout(ai_bottom_row)
         
         # Animations
         self.ai_height_anim = QPropertyAnimation(self.ai_options_widget, b"maximumHeight")
@@ -2024,6 +2125,10 @@ class App(QWidget):
                 cb.setText(self.t(tag_key))
         self.ai_label_input.setPlaceholderText(self.t("ai_label_tip"))
         self.rb_ai.setText(self.t("mode_ai"))
+        # Update AI Quality buttons
+        for btn in self._ai_quality_btns:
+            val = btn.property("ai_quality_value")
+            btn.setText(self.t(f"ai_quality_{val}"))
 
         # History
         self.hist_header_label.setText(self.t("hist_header"))
@@ -2104,12 +2209,20 @@ class App(QWidget):
                 selected_labels.extend(extra_labels)
             custom_labels = list(set(selected_labels)) # Unique labels
             
+        # Get AI quality setting
+        ai_quality = "standard"
+        if hasattr(self, 'ai_quality_group'):
+            checked_btn = self.ai_quality_group.checkedButton()
+            if checked_btn:
+                ai_quality = checked_btn.property("ai_quality_value")
+        
         # Start Thread
         model_dir = str(self.res_dir / "assets" / "models" / "chinese-clip-vit-base-patch16")
         self.worker = SortWorker(
             folder, mode, self.cb_copy.isChecked(), 
             recursive=self.cb_recursive.isChecked(),
-            lang=self.lang, model_dir=model_dir, custom_labels=custom_labels
+            lang=self.lang, model_dir=model_dir, custom_labels=custom_labels,
+            ai_quality=ai_quality
         )
         self.worker.progress.connect(self.update_status)
         self.worker.total_count_ready.connect(self.set_total_count)
